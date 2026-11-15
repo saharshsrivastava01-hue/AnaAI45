@@ -1,0 +1,12 @@
+name = "ultra-registry-api"
+main = "src/index.js"
+compatibility_date = "2026-11-15"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ultra-registry"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+ALLOWED_ORIGIN = "https://saharshsrivastava01-hue.github.io"
+MAX_PAGE_SIZE = "100"
