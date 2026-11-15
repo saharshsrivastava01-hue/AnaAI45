@@ -31,3 +31,7 @@ The private CryptoKey is non-exportable and stored in browser IndexedDB. The bro
 
 ## Local development
 Open `network.html` over HTTPS (or localhost) in a modern browser. The Web Crypto API and IndexedDB are required for signing. The service worker enables basic offline caching after the first successful load.
+
+
+## Proof of key control
+The resolver can generate a random 192-bit nonce, bind it to the namespace, label, public-key fingerprint and issue time, then sign the challenge with the locally stored private key. The page verifies that signature locally and displays a JSON proof object. This demonstrates local possession of the key at proof-generation time. It is not a server-issued timestamp, trusted identity check, remote authentication service or anti-replay system until a server stores and consumes challenges.
