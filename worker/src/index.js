@@ -134,6 +134,8 @@ async function handle(request, env) {
   }
   // Posts are queued, never published immediately.
   if (request.method === "POST" && path === "/api/v1/posts") {
+    // Fail closed until creator ownership is cryptographically verified.
+    return response({ error: "Publishing is paused until creator ownership verification is implemented; handle-only publishing permits impersonation." }, 503, headers);
     if (!await rateLimit(request, env, "post", 8)) return response({ error: "Rate limit exceeded." }, 429, headers);
     let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
     const handle = String(b.handle || "").trim().toLowerCase();
@@ -165,15 +167,17 @@ async function handle(request, env) {
     return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
   }
 
-  if (request.method === "GET" && path === "/api/v1/moderation/queue") {
-    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/i,"");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
-    const [creators,posts,reports]=await Promise.all([
-      env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all(),
-      env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all(),
-      env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all()
-    ]);
-    return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
+
+  // Operator-only report resolution.
+  const reportModeration = path.match(new RegExp('^/api/v1/moderation/reports/([a-f0-9-]{36})$', 'i'));
+  if (request.method === "POST" && reportModeration) {
+    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
+    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    if (!["reviewed", "dismissed"].includes(b.status)) return response({ error: "Status must be reviewed or dismissed." }, 400, headers);
+    const result = await env.DB.prepare("UPDATE abuse_reports SET status=? WHERE id=? AND status='pending'").bind(b.status, reportModeration[1]).run();
+    if (!result.meta || result.meta.changes === 0) return response({ error: "Pending report not found." }, 404, headers);
+    return response({ ok: true, status: b.status }, 200, headers);
   }
   // Operator-only moderation. Configure ADMIN_TOKEN with: wrangler secret put ADMIN_TOKEN
   const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
