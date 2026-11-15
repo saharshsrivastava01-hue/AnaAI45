@@ -51,3 +51,16 @@ Pending items are not returned by public endpoints. The included moderation cons
 
 
 The protected moderation queue is available at `GET /api/v1/moderation/queue` with `Authorization: Bearer <ADMIN_TOKEN>`. The `platform.html` operator panel can load the queue and approve/reject creators and posts. Reports are returned for inspection; report-resolution actions are not yet implemented.
+
+
+## Security hardening update
+- Abuse reports can now be resolved by an operator with `POST /api/v1/moderation/reports/{id}`, an `Authorization: Bearer <ADMIN_TOKEN>` header, and JSON status `{"status":"reviewed"}` or `{"status":"dismissed"}`.
+- The moderation UI exposes these report actions. Only pending reports can be changed.
+- **Creator post publishing is intentionally disabled (HTTP 503)** until creator ownership is verified cryptographically. The previous handle-only API allowed anyone to submit under an approved handle. Do not re-enable it until a signed creator-key enrollment and signed post verification flow is implemented.
+- The duplicate moderation queue handler has been removed. The queue and report actions require the operator secret.
+- Apply the current `worker/src/index.js` update when deploying. Existing D1 schema already includes the report status field; no schema migration is required for report resolution.
+
+### Static security checks
+Run from the repository root with Node.js 18 or newer:
+`node --test worker/tests/security.test.mjs`
+These checks inspect key source invariants; they are not a substitute for integration tests against a deployed Worker and D1 database.
