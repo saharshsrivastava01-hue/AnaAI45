@@ -27,3 +27,27 @@ CREATE TABLE IF NOT EXISTS abuse_reports (
 );
 
 -- Names are globally unique in this D1 database. No private keys are stored here.
+
+
+-- Community publishing: submissions are hidden until an operator approves them.
+CREATE TABLE IF NOT EXISTS creators (
+  id TEXT PRIMARY KEY,
+  handle TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  display_name TEXT NOT NULL,
+  bio TEXT NOT NULL DEFAULT '',
+  website TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+);
+CREATE TABLE IF NOT EXISTS posts (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  category TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  FOREIGN KEY (creator_id) REFERENCES creators(id)
+);
+CREATE INDEX IF NOT EXISTS idx_posts_public ON posts(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_creators_public ON creators(status, created_at DESC);
