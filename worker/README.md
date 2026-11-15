@@ -48,3 +48,6 @@ New endpoints:
 - `POST /api/v1/moderation/creators/{id}` and `POST /api/v1/moderation/posts/{id}` — operator approval/rejection with `Authorization: Bearer <ADMIN_TOKEN>` and JSON `{"status":"approved"}` or `{"status":"rejected"}`.
 
 Pending items are not returned by public endpoints. The included moderation console is a basic bearer-token prototype, not a hardened admin system. Use it only on a trusted device; deploy HTTPS, rotate the secret, add stronger authentication and audit logging before public operation. Never expose ADMIN_TOKEN in browser JavaScript or commit it to Git.
+
+
+The protected moderation queue is available at `GET /api/v1/moderation/queue` with `Authorization: Bearer <ADMIN_TOKEN>`. The `platform.html` operator panel can load the queue and approve/reject creators and posts. Reports are returned for inspection; report-resolution actions are not yet implemented.
