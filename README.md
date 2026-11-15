@@ -38,3 +38,12 @@ To become a genuine multi-user service, ULTRA still needs authenticated accounts
 
 ## Search engine files
 The repository includes `robots.txt` and `sitemap.xml`. Only meaningful public pages should be indexed; do not generate thin pages for every unused name.
+
+
+## Shared registry backend (new)
+- `shared.html` — browser dashboard for publishing signed identities to, and resolving identities from, the shared API.
+- `worker/src/index.js` — Cloudflare Worker REST API with signature verification, IP-based basic rate limiting and unique-name claims.
+- `worker/schema.sql` — Cloudflare D1 schema with unique identity labels and key fingerprints.
+- `worker/wrangler.toml` and `worker/README.md` — deployment configuration and step-by-step setup.
+
+The shared API is **source code only until deployed**. To activate it, create a Cloudflare D1 database, set its ID in `worker/wrangler.toml`, run the SQL schema, deploy the Worker, and enter its URL in `shared.html`. Never put Cloudflare secrets in browser code or Git. The free-tier availability and limits are controlled by Cloudflare and may change.
