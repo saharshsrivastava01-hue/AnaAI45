@@ -1,3 +1,4 @@
+import { handleAI } from "./ai.js";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const RESERVED = new Set(["admin","api","www","root","support","security","ultra","nexora","help","billing","login","signup","settings","mail","ftp","ns1","ns2"]);
 const enc = new TextEncoder();
@@ -69,6 +70,7 @@ async function handle(request, env) {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(request, env) });
   const headers = cors(request, env);
+  if (path === "/api/v1/ai/chat") return handleAI(request, env, headers);
   if (!env.DB) return response({ error: "Database binding DB is not configured." }, 503, headers);
   if (request.method === "GET" && path === "/health") return response({ ok: true, service: "ULTRA Registry API", version: "1.0.0" }, 200, headers);
   if (request.method === "GET" && path === "/api/v1/registry") {
