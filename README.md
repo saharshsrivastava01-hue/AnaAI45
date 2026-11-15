@@ -1,26 +1,40 @@
-# ULTRA — Free Creator Discovery Prototype
+# ULTRA — Free Creator Platform & Identity Network
 
-A zero-cost static prototype for creator discovery, local publishing, ULTRA identity previews and campaign-link drafting.
+A zero-cost static prototype for creator discovery, local publishing, campaign-link drafting, and a NEXORA-inspired identity namespace.
+
+## Open the app
+- Home: `index.html`
+- Identity registry and resolver: `network.html`
+- Protocol design: `ULTRA-PROTOCOL.md`
+
+## New identity-network capabilities
+- Local identity labels such as `alice.ultra` with reserved-name protection.
+- HTTPS destination mapping and local alias routing.
+- ECDSA P-256 / SHA-256 signed identity records using the browser Web Crypto API.
+- SHA-256 public-key fingerprints and signature verification.
+- Non-exportable private keys stored locally in IndexedDB.
+- Portable JSON export/import for signed public records; invalid signatures are rejected on import.
+- PWA manifest and service worker for installability and basic offline caching.
 
 ## Run locally
-Open `index.html` in a modern browser. No build tools, API keys, paid services or backend are required.
+Open `index.html` or `network.html` in a modern browser. For cryptography and service-worker features, use HTTPS or localhost. No paid API or build tools are required.
 
 ## Publish free with GitHub Pages
-1. Open the repository Settings → Pages.
-2. Under Build and deployment, choose Deploy from a branch.
-3. Select branch `main` and folder `/ (root)`, then Save.
-4. Wait for GitHub Pages to publish. The expected project URL is `https://saharshsrivastava01-hue.github.io/AnaAI45/`.
-5. Test the URL on mobile and desktop.
+1. Open repository Settings → Pages.
+2. Under Build and deployment, select **GitHub Actions** if the workflow is enabled, or deploy from branch `main` and folder `/ (root)`.
+3. Wait for the Pages workflow to complete.
+4. Test `https://saharshsrivastava01-hue.github.io/AnaAI45/` and the `network.html` page.
 
-## Important limitations
-- Posts and claimed identities are saved only in the current browser's localStorage. They are not shared across users or devices.
-- This is a static prototype: no account system, database, server-side registry, video hosting, server analytics or moderation backend.
-- `name.ultra` is an internal ULTRA namespace label, not a public DNS top-level domain. Its share link is a normal HTTPS URL on the GitHub Pages host.
-- No Google indexing, ranking, virality, AdSense approval or revenue is guaranteed.
-- A GitHub Pages subdomain is not automatically eligible for ordinary AdSense site registration. Google makes the final eligibility and approval decision. Use a domain/host supported by Google's current signup flow and verify ownership.
+## Critical limitations
+- The registry and posts are browser-local. They are not shared across users/devices; local name availability is not globally authoritative.
+- A self-signed record proves integrity relative to its embedded public key. It does not prove a person's real-world identity or ownership of a brand.
+- Private keys are non-exportable and stored in browser IndexedDB. Clearing browser/site data may make an identity key unrecoverable. Exporting the public registry does not back up private keys.
+- This is not a public DNS registrar or registry. `alice.ultra` is an internal ULTRA namespace label that resolves through an ordinary HTTPS URL. It is not an ICANN-delegated TLD and will not resolve in arbitrary browsers or DNS clients.
+- A public gTLD requires formal ICANN processes, a qualified registry operator and substantial operational/financial resources. The 2026 ICANN new-gTLD round has closed; see the official program and fee information.
+- No Google indexing, ranking, virality, AdSense approval or revenue is guaranteed. A GitHub Pages subdomain is not automatically eligible for ordinary AdSense signup.
 
-## Before a real launch
-Add a secure backend and authentication, shared database with row-level access controls, server-side public profile/content routes, upload storage, moderation/reporting, privacy/terms/contact details, real analytics, canonical host configuration, sitemap generation and security review. Publish original useful content before requesting indexing or applying for advertising.
+## Production roadmap
+To become a genuine multi-user service, ULTRA still needs authenticated accounts, a shared database with atomic unique-label constraints, ownership recovery, key rotation/revocation, signed audit history, resolver API, abuse prevention, moderation, backups, monitoring, independent security review and an operator-controlled domain. Optional DNS records can only be published under a real domain for which the operator controls authoritative DNS.
 
 ## Search engine files
-The repository includes `robots.txt` and `sitemap.xml`. Update the sitemap last-modified date and URLs whenever the public site structure changes.
+The repository includes `robots.txt` and `sitemap.xml`. Only meaningful public pages should be indexed; do not generate thin pages for every unused name.
