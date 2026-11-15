@@ -44,6 +44,7 @@ New endpoints:
 - `GET /api/v1/posts` — approved feed.
 - `POST /api/v1/posts` — submit a post (requires an approved creator handle).
 - `POST /api/v1/reports` — report suspected abuse.
+- `GET /api/v1/moderation/queue` — protected pending creator/post/report queue.
 - `POST /api/v1/moderation/creators/{id}` and `POST /api/v1/moderation/posts/{id}` — operator approval/rejection with `Authorization: Bearer <ADMIN_TOKEN>` and JSON `{"status":"approved"}` or `{"status":"rejected"}`.
 
-Pending items are not returned by public endpoints. This initial release does not provide a secure admin review queue or user login; inspect pending rows in the Cloudflare D1 dashboard and use a trusted operator-only client to moderate. Never expose ADMIN_TOKEN in browser JavaScript.
+Pending items are not returned by public endpoints. The included moderation console is a basic bearer-token prototype, not a hardened admin system. Use it only on a trusted device; deploy HTTPS, rotate the secret, add stronger authentication and audit logging before public operation. Never expose ADMIN_TOKEN in browser JavaScript or commit it to Git.
