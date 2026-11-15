@@ -29,3 +29,21 @@ Open `shared.html`, enter the deployed Worker base URL, then import the public J
 - There is no account login, recovery, ownership transfer, record update/revocation, appeal process, trademark review, or admin moderation UI yet.
 - Add monitoring, backups, key rotation/recovery, abuse workflows, security review and terms/privacy pages before public production use.
 - Never put private keys or Cloudflare API tokens in frontend code or Git.
+
+
+## Creator network API (added)
+Apply the latest schema to D1 after updating the Worker:
+`wrangler d1 execute ultra-registry --file=./schema.sql`
+
+Configure the operator moderation secret (do not commit it):
+`wrangler secret put ADMIN_TOKEN`
+
+New endpoints:
+- `GET /api/v1/creators` — approved creator profiles.
+- `POST /api/v1/creators` — submit a profile for approval.
+- `GET /api/v1/posts` — approved feed.
+- `POST /api/v1/posts` — submit a post (requires an approved creator handle).
+- `POST /api/v1/reports` — report suspected abuse.
+- `POST /api/v1/moderation/creators/{id}` and `POST /api/v1/moderation/posts/{id}` — operator approval/rejection with `Authorization: Bearer <ADMIN_TOKEN>` and JSON `{"status":"approved"}` or `{"status":"rejected"}`.
+
+Pending items are not returned by public endpoints. This initial release does not provide a secure admin review queue or user login; inspect pending rows in the Cloudflare D1 dashboard and use a trusted operator-only client to moderate. Never expose ADMIN_TOKEN in browser JavaScript.
