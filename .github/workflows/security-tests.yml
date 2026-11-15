@@ -1,0 +1,17 @@
+name: ULTRA security tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  worker-security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run static security regression tests
+        run: node --test worker/tests/security.test.mjs
