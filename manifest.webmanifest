@@ -1,0 +1,13 @@
+{
+  "name": "ULTRA Network Identity Registry",
+  "short_name": "ULTRA Network",
+  "description": "Local-first signed identity registry and resolver prototype",
+  "start_url": "./network.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080812",
+  "theme_color": "#090914",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ]
+}
