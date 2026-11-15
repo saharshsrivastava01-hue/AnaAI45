@@ -47,3 +47,13 @@ The repository includes `robots.txt` and `sitemap.xml`. Only meaningful public p
 - `worker/wrangler.toml` and `worker/README.md` — deployment configuration and step-by-step setup.
 
 The shared API is **source code only until deployed**. To activate it, create a Cloudflare D1 database, set its ID in `worker/wrangler.toml`, run the SQL schema, deploy the Worker, and enter its URL in `shared.html`. Never put Cloudflare secrets in browser code or Git. The free-tier availability and limits are controlled by Cloudflare and may change.
+
+
+## Creator Network and publishing (new)
+- `platform.html` — creator directory, public feed, profile submission, post submission and abuse reporting UI.
+- Worker endpoints: `GET /api/v1/creators`, `POST /api/v1/creators`, `GET /api/v1/posts`, `POST /api/v1/posts`, `POST /api/v1/reports`.
+- Creator profiles and posts enter a pending queue; only approved content appears in public directory/feed.
+- Moderation endpoints require the Worker secret `ADMIN_TOKEN`. Configure it with `wrangler secret put ADMIN_TOKEN`.
+- Apply the updated `worker/schema.sql` to an existing D1 database to create the community tables.
+
+This is not yet a complete login/account system. Profile/post submissions are rate-limited and moderated, but a production launch still needs authenticated creator ownership, secure admin queue tooling, stronger anti-abuse controls, privacy/terms pages, backup and security review.
