@@ -164,6 +164,17 @@ async function handle(request, env) {
     const reports=await env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
   }
+
+  if (request.method === "GET" && path === "/api/v1/moderation/queue") {
+    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/i,"");
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
+    const [creators,posts,reports]=await Promise.all([
+      env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all(),
+      env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all(),
+      env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all()
+    ]);
+    return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
+  }
   // Operator-only moderation. Configure ADMIN_TOKEN with: wrangler secret put ADMIN_TOKEN
   const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
   if (request.method === "POST" && moderation) {
