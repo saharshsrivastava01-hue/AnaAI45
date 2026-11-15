@@ -12,7 +12,7 @@ function cors(request, env) {
   return {
     "access-control-allow-origin": permitted ? origin : allowed,
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type,authorization",
     "vary": "Origin"
   };
 }
@@ -103,6 +103,70 @@ async function handle(request, env) {
       if (message.includes("UNIQUE") || message.includes("constraint")) return response({ error: "That identity label or key fingerprint has already been claimed." }, 409, headers);
       return response({ error: "Could not save identity." }, 500, headers);
     }
+  }
+
+  // Public creator directory (approved profiles only).
+  if (request.method === "GET" && path === "/api/v1/creators") {
+    const rows = await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='approved' ORDER BY created_at DESC LIMIT 100").all();
+    return response({ items: rows.results || [] }, 200, headers);
+  }
+  // New creator profiles enter a moderation queue.
+  if (request.method === "POST" && path === "/api/v1/creators") {
+    if (!await rateLimit(request, env, "creator", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
+    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const handle = String(b.handle || "").trim().toLowerCase();
+    const display = String(b.displayName || "").trim();
+    const bio = String(b.bio || "").trim();
+    const website = String(b.website || "").trim();
+    if (!/^[a-z0-9_]{3,24}$/.test(handle) || RESERVED.has(handle)) return response({ error: "Handle must be 3–24 letters, numbers or underscores and cannot be reserved." }, 400, headers);
+    if (!display || display.length > 60 || bio.length > 240) return response({ error: "Display name is required (max 60); bio max 240 characters." }, 400, headers);
+    if (website && !/^https:\/\//i.test(website)) return response({ error: "Website must begin with https://." }, 400, headers);
+    const id = crypto.randomUUID(), now = new Date().toISOString();
+    try {
+      await env.DB.prepare("INSERT INTO creators(id,handle,display_name,bio,website,created_at,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,handle,display,bio,website,now).run();
+      return response({ ok:true, id, handle, status:"pending", message:"Creator profile submitted for moderation." }, 201, headers);
+    } catch (e) { return response({ error: String(e.message||"").includes("UNIQUE") ? "That creator handle is already taken." : "Could not submit creator profile." }, 409, headers); }
+  }
+  // Public feed returns approved posts and approved creator metadata only.
+  if (request.method === "GET" && path === "/api/v1/posts") {
+    const rows = await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle,c.display_name FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='approved' AND c.status='approved' ORDER BY p.created_at DESC LIMIT 100").all();
+    return response({ items: rows.results || [] }, 200, headers);
+  }
+  // Posts are queued, never published immediately.
+  if (request.method === "POST" && path === "/api/v1/posts") {
+    if (!await rateLimit(request, env, "post", 8)) return response({ error: "Rate limit exceeded." }, 429, headers);
+    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const handle = String(b.handle || "").trim().toLowerCase();
+    const title = String(b.title || "").trim();
+    const body = String(b.body || "").trim();
+    const category = String(b.category || "General").trim().slice(0,32);
+    if (!handle || !title || !body || title.length > 100 || body.length > 4000) return response({ error: "Provide an approved creator handle, title (max 100) and content (max 4000)." }, 400, headers);
+    const creator = await env.DB.prepare("SELECT id FROM creators WHERE handle=? COLLATE NOCASE AND status='approved'").bind(handle).first();
+    if (!creator) return response({ error: "Approved creator profile not found. Submit a profile and wait for moderation first." }, 404, headers);
+    const id=crypto.randomUUID(), now=new Date().toISOString();
+    await env.DB.prepare("INSERT INTO posts(id,creator_id,title,body,category,created_at,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,creator.id,title,body,category,now).run();
+    return response({ ok:true,id,status:"pending",message:"Post submitted for review; it is not public yet." },201,headers);
+  }
+  if (request.method === "POST" && path === "/api/v1/reports") {
+    if (!await rateLimit(request, env, "report", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
+    let b; try { b=await request.json(); } catch { return response({ error:"Invalid JSON." },400,headers); }
+    const label=String(b.label||"").trim().slice(0,80), reason=String(b.reason||"").trim().slice(0,60), details=String(b.details||"").trim().slice(0,1000);
+    if (!label || !reason) return response({ error:"Label and reason are required." },400,headers);
+    await env.DB.prepare("INSERT INTO abuse_reports(id,label,reason,details,created_at,status) VALUES(?,?,?,?,?,'pending')").bind(crypto.randomUUID(),label,reason,details,new Date().toISOString()).run();
+    return response({ok:true,message:"Report received for operator review."},201,headers);
+  }
+  // Operator-only moderation. Configure ADMIN_TOKEN with: wrangler secret put ADMIN_TOKEN
+  const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
+  if (request.method === "POST" && moderation) {
+    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
+    let b; try { b=await request.json(); } catch { return response({error:"Invalid JSON."},400,headers); }
+    const status=b.status;
+    if (!["approved","rejected"].includes(status)) return response({error:"Status must be approved or rejected."},400,headers);
+    const table=moderation[1]==="creators"?"creators":"posts";
+    const result=await env.DB.prepare("UPDATE "+table+" SET status=? WHERE id=?").bind(status,moderation[2]).run();
+    if (!result.meta || result.meta.changes===0) return response({error:"Submission not found."},404,headers);
+    return response({ok:true,status},200,headers);
   }
   return response({ error: "Not found", routes: ["GET /health", "GET /api/v1/registry", "GET /api/v1/resolve/{label}", "POST /api/v1/identities"] }, 404, headers);
 }
