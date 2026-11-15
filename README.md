@@ -56,4 +56,7 @@ The shared API is **source code only until deployed**. To activate it, create a 
 - Moderation endpoints require the Worker secret `ADMIN_TOKEN`. Configure it with `wrangler secret put ADMIN_TOKEN`.
 - Apply the updated `worker/schema.sql` to an existing D1 database to create the community tables.
 
-This is not yet a complete login/account system. Profile/post submissions are rate-limited and moderated, but a production launch still needs authenticated creator ownership, secure admin queue tooling, stronger anti-abuse controls, privacy/terms pages, backup and security review.
+This is not yet a complete login/account system. Profile/post submissions are rate-limited and moderated, but a production launch still needs authenticated creator ownership, stronger anti-abuse controls, privacy/terms pages, backup and security review.
+
+
+The creator platform now includes a token-protected moderation queue at `GET /api/v1/moderation/queue`; the operator UI in `platform.html` can approve or reject pending creator profiles and posts. Reports are listed for review but are not automatically resolved.
