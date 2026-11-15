@@ -68,3 +68,13 @@ The creator platform now includes a token-protected moderation queue at `GET /ap
 - Creator post publishing is deliberately disabled until cryptographic creator ownership and post authorisation are implemented. This closes the current handle-impersonation path rather than pretending a handle is an authenticated account.
 - Run `node --test worker/tests/security.test.mjs` with Node.js 18+; GitHub Actions runs these static regression checks on pushes and pull requests.
 - These source changes are not deployed or integration-tested against a live Cloudflare Worker/D1 database. The static tests check security invariants, not production behavior.
+
+
+## ULTRA AI assistant (new)
+- `ai.html` is the browser chat interface.
+- `POST /api/v1/ai/chat` proxies requests through the Cloudflare Worker to the OpenAI API. The provider key stays server-side and is never shipped to the browser.
+- Configure the Worker with `wrangler secret put OPENAI_API_KEY` and set `OPENAI_MODEL` to a model available to your API account (for example in `worker/wrangler.toml` under `[vars]`). Do not commit API keys.
+- The endpoint limits prompts to 4,000 characters, caps generated output at 900 tokens, and applies a basic per-IP rate limit of 8 requests per minute using D1.
+- Open `ai.html`, save the deployed Worker HTTPS base URL, and send a test message.
+
+**Important:** ChatGPT web/app subscriptions do not automatically include API credits. OpenAI API access and billing may need to be configured separately. The assistant is not live until the Worker is deployed and the required secrets/model are configured. API usage may cost money; monitor limits and billing.
