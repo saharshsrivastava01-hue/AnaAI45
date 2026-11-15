@@ -159,7 +159,7 @@ async function handle(request, env) {
   }
   // Operator-only queue. Never expose ADMIN_TOKEN in a public client.
   if (request.method === "GET" && path === "/api/v1/moderation/queue") {
-    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/i,"");
+    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
     const creators=await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     const posts=await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all();
@@ -171,7 +171,7 @@ async function handle(request, env) {
   // Operator-only report resolution.
   const reportModeration = path.match(new RegExp('^/api/v1/moderation/reports/([a-f0-9-]{36})$', 'i'));
   if (request.method === "POST" && reportModeration) {
-    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
     let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
     if (!["reviewed", "dismissed"].includes(b.status)) return response({ error: "Status must be reviewed or dismissed." }, 400, headers);
