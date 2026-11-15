@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d1c"><title>ULTRA AI — Assistant</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#080d1c;color:#edf2ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#263c72 0,transparent 55%),#080d1c}
+main{width:min(900px,100% - 32px);margin:36px auto}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+a{color:#9db8ff}.brand{font-weight:800;letter-spacing:.16em;color:#b8c9ff}.panel{margin-top:24px;padding:22px;border:1px solid #293653;border-radius:20px;background:#0e172aee;box-shadow:0 18px 70px #0005}
+h1{font-size:clamp(30px,6vw,52px);margin:12px 0}.muted{color:#a9b7d2;line-height:1.6}.config{display:flex;gap:8px;margin:18px 0}.config input,textarea{width:100%;background:#080f20;color:#edf2ff;border:1px solid #344565;border-radius:12px;padding:13px;font:inherit}
+button{border:0;border-radius:12px;padding:12px 17px;background:#8eacff;color:#071126;font-weight:750;cursor:pointer}button:disabled{opacity:.5;cursor:wait}
+#chat{min-height:220px;max-height:48vh;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:6px 0}.bubble{padding:13px 15px;border-radius:14px;white-space:pre-wrap;line-height:1.55;max-width:92%}.user{align-self:flex-end;background:#263d70}.bot{align-self:flex-start;background:#17243c}.error{color:#ffb3b3}
+form{display:grid;grid-template-columns:1fr auto;gap:10px}textarea{min-height:60px;resize:vertical}.foot{font-size:12px;color:#8998b5;margin-top:18px}
+@media(max-width:600px){main{margin:20px auto}.panel{padding:16px}.config{flex-direction:column}form{grid-template-columns:1fr}}
+</style></head>
+<body><main>
+<div class="top"><a href="index.html">← ULTRA home</a><span class="brand">ULTRA / AI</span></div>
+<section class="panel">
+<div class="muted">MODEL-POWERED ASSISTANT · PREVIEW</div><h1>Think with ULTRA AI.</h1>
+<p class="muted">Connect this interface to your deployed ULTRA Worker. The model runs on the server; your API key is never placed in this page.</p>
+<label for="endpoint" class="muted">Worker base URL (example: https://your-worker.your-subdomain.workers.dev)</label>
+<div class="config"><input id="endpoint" type="url" placeholder="https://your-worker.workers.dev" autocomplete="url"><button id="save" type="button">Save URL</button></div>
+<div id="chat" aria-live="polite"><div class="bubble bot">Hello! Connect your Worker URL above, then ask me something.</div></div>
+<form id="ask"><textarea id="message" maxlength="4000" placeholder="Ask ULTRA AI…" required></textarea><button id="send" type="submit">Send</button></form>
+<p id="status" class="foot">Not connected until a Worker URL is saved and its AI secrets are configured.</p>
+<p class="foot">Usage may incur API charges on the provider account. Do not enter passwords, API keys, or sensitive personal data here.</p>
+</section></main>
+<script>
+const endpoint=document.querySelector("#endpoint"),chat=document.querySelector("#chat"),status=document.querySelector("#status"),form=document.querySelector("#ask"),send=document.querySelector("#send"),message=document.querySelector("#message");
+endpoint.value=localStorage.getItem("ultra_ai_endpoint")||"";
+document.querySelector("#save").onclick=()=>{const value=endpoint.value.trim().replace(/\/+$/,"");try{const u=new URL(value);if(u.protocol!=="https:")throw Error();localStorage.setItem("ultra_ai_endpoint",value);endpoint.value=value;status.textContent="Worker URL saved in this browser."; }catch{status.textContent="Enter a valid HTTPS Worker base URL."; }};
+function bubble(text,kind){const el=document.createElement("div");el.className="bubble "+kind;el.textContent=text;chat.append(el);chat.scrollTop=chat.scrollHeight;}
+form.addEventListener("submit",async e=>{e.preventDefault();const text=message.value.trim(),base=localStorage.getItem("ultra_ai_endpoint");if(!text)return;if(!base){status.textContent="Save your HTTPS Worker URL first.";return;}bubble(text,"user");message.value="";send.disabled=true;status.textContent="Thinking…";try{const r=await fetch(base+"/api/v1/ai/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:text})});const data=await r.json();if(!r.ok)throw Error(data.error||"Request failed");bubble(data.answer,"bot");status.textContent="Answered by "+data.model;}catch(err){bubble(err.message,"bot error");status.textContent="Could not reach the AI service.";}finally{send.disabled=false;message.focus();}});
+</script></body></html>
