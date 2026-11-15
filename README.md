@@ -60,3 +60,11 @@ This is not yet a complete login/account system. Profile/post submissions are ra
 
 
 The creator platform now includes a token-protected moderation queue at `GET /api/v1/moderation/queue`; the operator UI in `platform.html` can approve or reject pending creator profiles and posts. Reports are listed for review but are not automatically resolved.
+
+
+## Security status update
+- Operator moderation now supports marking abuse reports as reviewed or dismissed.
+- The duplicate moderation-queue route was removed and bearer-token parsing was corrected.
+- Creator post publishing is deliberately disabled until cryptographic creator ownership and post authorisation are implemented. This closes the current handle-impersonation path rather than pretending a handle is an authenticated account.
+- Run `node --test worker/tests/security.test.mjs` with Node.js 18+; GitHub Actions runs these static regression checks on pushes and pull requests.
+- These source changes are not deployed or integration-tested against a live Cloudflare Worker/D1 database. The static tests check security invariants, not production behavior.
