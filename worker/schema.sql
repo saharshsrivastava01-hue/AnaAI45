@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS abuse_reports (
   reason TEXT NOT NULL,
   details TEXT,
   created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending'
+  status TEXT NOT NULL DEFAULT 'pending',
+  owner_public_key TEXT,
+  owner_fingerprint TEXT,
+  ownership_verified_at TEXT
 );
 
 -- Names are globally unique in this D1 database. No private keys are stored here.
@@ -39,6 +42,9 @@ CREATE TABLE IF NOT EXISTS creators (
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_creators_owner_fingerprint
+  ON creators(owner_fingerprint) WHERE owner_fingerprint IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS posts (
   id TEXT PRIMARY KEY,
   creator_id TEXT NOT NULL,
@@ -47,6 +53,8 @@ CREATE TABLE IF NOT EXISTS posts (
   category TEXT NOT NULL,
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+  author_fingerprint TEXT,
+  author_signature TEXT,
   FOREIGN KEY (creator_id) REFERENCES creators(id)
 );
 CREATE INDEX IF NOT EXISTS idx_posts_public ON posts(status, created_at DESC);
