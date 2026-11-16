@@ -65,6 +65,32 @@ async function rateLimit(request, env, bucketName, max = 20) {
   await env.DB.prepare("UPDATE rate_limits SET hits=hits+1 WHERE bucket=?").bind(bucket).run();
   return true;
 }
+async function verifyDetachedSignature(publicKeyBase64, signatureBase64, fingerprint, payload) {
+  try {
+    if (typeof publicKeyBase64 !== "string" || publicKeyBase64.length > 512 ||
+        typeof signatureBase64 !== "string" || signatureBase64.length > 256 ||
+        !/^[a-f0-9]{64}$/.test(fingerprint || "")) return false;
+    const keyBytes = b64ToBytes(publicKeyBase64);
+    const digest = await crypto.subtle.digest("SHA-256", keyBytes);
+    const actualFingerprint = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
+    if (actualFingerprint !== fingerprint) return false;
+    const key = await crypto.subtle.importKey("spki", keyBytes, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    return await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      key,
+      b64ToBytes(signatureBase64),
+      enc.encode(JSON.stringify(payload))
+    );
+  } catch { return false; }
+}
+function freshSignedTimestamp(value) {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && Math.abs(Date.now() - parsed) <= 5 * 60 * 1000;
+}
+function validUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function handle(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -112,44 +138,80 @@ async function handle(request, env) {
     const rows = await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='approved' ORDER BY created_at DESC LIMIT 100").all();
     return response({ items: rows.results || [] }, 200, headers);
   }
-  // New creator profiles enter a moderation queue.
+  // Creator enrollment binds a unique handle to an ECDSA P-256 key.
   if (request.method === "POST" && path === "/api/v1/creators") {
     if (!await rateLimit(request, env, "creator", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
     let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
-    const handle = String(b.handle || "").trim().toLowerCase();
-    const display = String(b.displayName || "").trim();
-    const bio = String(b.bio || "").trim();
-    const website = String(b.website || "").trim();
+    const handle = typeof b.handle === "string" ? b.handle.trim().toLowerCase() : "";
+    const displayName = typeof b.displayName === "string" ? b.displayName.trim() : "";
+    const bio = typeof b.bio === "string" ? b.bio.trim() : "";
+    const website = typeof b.website === "string" ? b.website.trim() : "";
+    const createdAt = typeof b.createdAt === "string" ? b.createdAt : "";
+    const publicKey = typeof b.publicKey === "string" ? b.publicKey : "";
+    const fingerprint = typeof b.fingerprint === "string" ? b.fingerprint : "";
+    const signature = typeof b.signature === "string" ? b.signature : "";
     if (!/^[a-z0-9_]{3,24}$/.test(handle) || RESERVED.has(handle)) return response({ error: "Handle must be 3–24 letters, numbers or underscores and cannot be reserved." }, 400, headers);
-    if (!display || display.length > 60 || bio.length > 240) return response({ error: "Display name is required (max 60); bio max 240 characters." }, 400, headers);
+    if (!displayName || displayName.length > 60 || bio.length > 240) return response({ error: "Display name is required (max 60); bio max 240 characters." }, 400, headers);
     if (website && !/^https:\/\//i.test(website)) return response({ error: "Website must begin with https://." }, 400, headers);
+    if (!freshSignedTimestamp(createdAt)) return response({ error: "Creator proof timestamp is missing, invalid or expired. Try again." }, 400, headers);
+    const claim = { handle, displayName, bio, website, createdAt, version: 1, publicKey, fingerprint };
+    if (!await verifyDetachedSignature(publicKey, signature, fingerprint, claim)) return response({ error: "Creator key proof is invalid. Profile not created." }, 400, headers);
     const id = crypto.randomUUID(), now = new Date().toISOString();
     try {
-      await env.DB.prepare("INSERT INTO creators(id,handle,display_name,bio,website,created_at,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,handle,display,bio,website,now).run();
-      return response({ ok:true, id, handle, status:"pending", message:"Creator profile submitted for moderation." }, 201, headers);
-    } catch (e) { return response({ error: String(e.message||"").includes("UNIQUE") ? "That creator handle is already taken." : "Could not submit creator profile." }, 409, headers); }
+      await env.DB.prepare("INSERT INTO creators(id,handle,display_name,bio,website,created_at,status,owner_public_key,owner_fingerprint,ownership_verified_at) VALUES(?,?,?,?,?,?,'pending',?,?,?)")
+        .bind(id, handle, displayName, bio, website, now, publicKey, fingerprint, now).run();
+      return response({ ok: true, id, handle, status: "pending", ownershipVerified: true, message: "Key-backed creator profile submitted for moderation. Keep this browser's creator key safe." }, 201, headers);
+    } catch (e) {
+      const message = String(e && e.message || "");
+      if (message.includes("UNIQUE") || message.includes("constraint")) return response({ error: "That handle or creator key is already registered." }, 409, headers);
+      return response({ error: "Could not submit creator profile." }, 500, headers);
+    }
+  }
+  // Resolve a locally stored key after a lost enrollment response. This returns public metadata only.
+  const ownerMatch = path.match(/^\/api\/v1\/creators\/by-key\/([a-f0-9]{64})$/i);
+  if (request.method === "GET" && ownerMatch) {
+    const row = await env.DB.prepare("SELECT id,handle,status FROM creators WHERE owner_fingerprint=?").bind(ownerMatch[1].toLowerCase()).first();
+    if (!row) return response({ error: "No creator account is linked to this key." }, 404, headers);
+    return response({ id: row.id, handle: row.handle, status: row.status }, 200, headers);
   }
   // Public feed returns approved posts and approved creator metadata only.
   if (request.method === "GET" && path === "/api/v1/posts") {
     const rows = await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle,c.display_name FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='approved' AND c.status='approved' ORDER BY p.created_at DESC LIMIT 100").all();
     return response({ items: rows.results || [] }, 200, headers);
   }
-  // Posts are queued, never published immediately.
+  // A post is accepted only when signed by the key bound to its creator account.
   if (request.method === "POST" && path === "/api/v1/posts") {
-    // Fail closed until creator ownership is cryptographically verified.
-    return response({ error: "Publishing is paused until creator ownership verification is implemented; handle-only publishing permits impersonation." }, 503, headers);
     if (!await rateLimit(request, env, "post", 8)) return response({ error: "Rate limit exceeded." }, 429, headers);
     let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
-    const handle = String(b.handle || "").trim().toLowerCase();
-    const title = String(b.title || "").trim();
-    const body = String(b.body || "").trim();
-    const category = String(b.category || "General").trim().slice(0,32);
-    if (!handle || !title || !body || title.length > 100 || body.length > 4000) return response({ error: "Provide an approved creator handle, title (max 100) and content (max 4000)." }, 400, headers);
-    const creator = await env.DB.prepare("SELECT id FROM creators WHERE handle=? COLLATE NOCASE AND status='approved'").bind(handle).first();
-    if (!creator) return response({ error: "Approved creator profile not found. Submit a profile and wait for moderation first." }, 404, headers);
-    const id=crypto.randomUUID(), now=new Date().toISOString();
-    await env.DB.prepare("INSERT INTO posts(id,creator_id,title,body,category,created_at,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,creator.id,title,body,category,now).run();
-    return response({ ok:true,id,status:"pending",message:"Post submitted for review; it is not public yet." },201,headers);
+    const creatorId = b.creatorId;
+    const id = b.id;
+    const title = typeof b.title === "string" ? b.title.trim() : "";
+    const bodyText = typeof b.body === "string" ? b.body.trim() : "";
+    const category = typeof b.category === "string" ? b.category.trim() : "General";
+    const createdAt = typeof b.createdAt === "string" ? b.createdAt : "";
+    const fingerprint = typeof b.fingerprint === "string" ? b.fingerprint : "";
+    const signature = typeof b.signature === "string" ? b.signature : "";
+    if (!validUuid(creatorId) || !validUuid(id) || !title || title.length > 100 || !bodyText || bodyText.length > 4000 ||
+        !category || category.length > 32 || !freshSignedTimestamp(createdAt)) {
+      return response({ error: "Invalid post fields or expired signing timestamp. Check the form and try again." }, 400, headers);
+    }
+    const creator = await env.DB.prepare("SELECT id,handle,status,owner_public_key,owner_fingerprint,ownership_verified_at FROM creators WHERE id=?").bind(creatorId).first();
+    if (!creator || creator.status !== "approved") return response({ error: "Approved creator account not found." }, 404, headers);
+    if (!creator.owner_public_key || !creator.owner_fingerprint || !creator.ownership_verified_at) return response({ error: "This legacy creator profile has no verified owner key and cannot publish." }, 403, headers);
+    if (fingerprint !== creator.owner_fingerprint) return response({ error: "Post signing key does not belong to this creator account." }, 403, headers);
+    const signedPost = { creatorId, id, title, body: bodyText, category, createdAt, version: 1, fingerprint };
+    if (!await verifyDetachedSignature(creator.owner_public_key, signature, creator.owner_fingerprint, signedPost)) {
+      return response({ error: "Post signature is invalid. Publishing rejected." }, 403, headers);
+    }
+    try {
+      await env.DB.prepare("INSERT INTO posts(id,creator_id,title,body,category,created_at,status,author_fingerprint,author_signature) VALUES(?,?,?,?,?,?,'pending',?,?)")
+        .bind(id, creatorId, title, bodyText, category, createdAt, fingerprint, signature).run();
+      return response({ ok: true, id, status: "pending", message: "Signed post submitted for review; it is not public until approved." }, 201, headers);
+    } catch (e) {
+      const message = String(e && e.message || "");
+      if (message.includes("UNIQUE") || message.includes("constraint")) return response({ error: "This signed post was already submitted or its ID is invalid." }, 409, headers);
+      return response({ error: "Could not save post." }, 500, headers);
+    }
   }
   if (request.method === "POST" && path === "/api/v1/reports") {
     if (!await rateLimit(request, env, "report", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
@@ -163,7 +225,7 @@ async function handle(request, env) {
   if (request.method === "GET" && path === "/api/v1/moderation/queue") {
     const token=(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
-    const creators=await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
+    const creators=await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at,ownership_verified_at,owner_fingerprint FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     const posts=await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all();
     const reports=await env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
@@ -181,18 +243,23 @@ async function handle(request, env) {
     if (!result.meta || result.meta.changes === 0) return response({ error: "Pending report not found." }, 404, headers);
     return response({ ok: true, status: b.status }, 200, headers);
   }
-  // Operator-only moderation. Configure ADMIN_TOKEN with: wrangler secret put ADMIN_TOKEN
+  // Operator-only moderation. Creator approval requires a verified owner key.
   const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
   if (request.method === "POST" && moderation) {
-    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
-    let b; try { b=await request.json(); } catch { return response({error:"Invalid JSON."},400,headers); }
-    const status=b.status;
-    if (!["approved","rejected"].includes(status)) return response({error:"Status must be approved or rejected."},400,headers);
-    const table=moderation[1]==="creators"?"creators":"posts";
-    const result=await env.DB.prepare("UPDATE "+table+" SET status=? WHERE id=?").bind(status,moderation[2]).run();
-    if (!result.meta || result.meta.changes===0) return response({error:"Submission not found."},404,headers);
-    return response({ok:true,status},200,headers);
+    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
+    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const status = b.status;
+    if (!["approved", "rejected"].includes(status)) return response({ error: "Status must be approved or rejected." }, 400, headers);
+    const table = moderation[1] === "creators" ? "creators" : "posts";
+    let result;
+    if (table === "creators" && status === "approved") {
+      result = await env.DB.prepare("UPDATE creators SET status=? WHERE id=? AND status='pending' AND owner_public_key IS NOT NULL AND owner_fingerprint IS NOT NULL AND ownership_verified_at IS NOT NULL").bind(status, moderation[2]).run();
+    } else {
+      result = await env.DB.prepare("UPDATE " + table + " SET status=? WHERE id=? AND status='pending'").bind(status, moderation[2]).run();
+    }
+    if (!result.meta || result.meta.changes === 0) return response({ error: table === "creators" && status === "approved" ? "Pending creator not found or verified owner proof is missing." : "Pending submission not found." }, 409, headers);
+    return response({ ok: true, status }, 200, headers);
   }
   return response({ error: "Not found", routes: ["GET /health", "GET /api/v1/registry", "GET /api/v1/resolve/{label}", "POST /api/v1/identities"] }, 404, headers);
 }
