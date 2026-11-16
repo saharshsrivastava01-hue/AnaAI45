@@ -13,5 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Run static security regression tests
-        run: node --test worker/tests/security.test.mjs
+      - name: Run Worker security and behavior tests
+        working-directory: worker
+        run: npm test
