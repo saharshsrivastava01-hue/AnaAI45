@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { Script } from "node:vm";
 
 const worker = await readFile(new URL("../src/index.js", import.meta.url), "utf8");
 const platform = await readFile(new URL("../../platform.html", import.meta.url), "utf8");
@@ -49,4 +50,10 @@ test("moderation UI contains report actions and keeps the token in the current f
   assert.match(platform, /id="adminToken"/);
   assert.match(platform, /authorization:"Bearer " \+ token/);
   assert.doesNotMatch(platform, /localStorage\.setItem\([^\n]*adminToken/i);
+});
+
+test("static creator frontend JavaScript parses without syntax errors", () => {
+  const match = platform.match(/<script>([\\s\\S]*?)<\\/script>/);
+  assert.ok(match, "platform.html must contain its client script");
+  assert.doesNotThrow(() => new Script(match[1]));
 });
