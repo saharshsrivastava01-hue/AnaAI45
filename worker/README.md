@@ -1,66 +1,93 @@
-# ULTRA Shared Registry API
+# ULTRA Worker + D1 API
 
-Cloudflare Worker + D1 backend for the ULTRA browser prototype. It stores **public signed identity records only**; private CryptoKeys remain in the user's browser.
+Cloudflare Worker backend for the static ULTRA frontend. The Worker stores public creator profile metadata, public signed identity records, posts awaiting moderation, and abuse reports. **Private creator signing keys remain in the browser and are never sent to the Worker.**
 
-## API
+## Creator ownership and publishing
+
+New creator registration is a proof-of-control flow, not a password or email login:
+
+1. The browser creates an ECDSA P-256 key pair using Web Crypto.
+2. The non-exportable private key is stored in that browser's IndexedDB. The public SPKI key and its SHA-256 fingerprint are sent to the Worker.
+3. The browser signs a canonical enrollment payload containing the handle, profile fields, timestamp, public key and fingerprint.
+4. The Worker verifies the fingerprint and signature before inserting the creator record. The handle and key fingerprint are unique.
+5. An operator must approve the profile before it appears in the public directory or can publish.
+6. A post includes a fresh timestamp, unique post ID, creator ID and fingerprint. The Worker verifies the signature against the public key bound to that creator ID, then queues the post for moderation. The submitted handle is not trusted as proof of authorship.
+
+The Worker rejects expired signatures, mismatched fingerprints, forged signatures and replayed post IDs. Approved posts only appear in the public feed after operator approval.
+
+### Browser-key limitations
+
+- The private key is marked non-exportable and stays in the browser's IndexedDB; the server stores only the public key.
+- This is origin-local storage, not a hardware-backed wallet. JavaScript executing on the same site origin may request signing operations.
+- Clearing site data, losing the browser profile or losing the device can permanently lose access. There is currently no encrypted backup, recovery, password login or cross-device transfer.
+- Do not register a valuable or business-critical handle until a separately reviewed recovery and key-rotation process exists.
+- A valid signature proves control of a cryptographic key; it does not verify a real-world person's identity, company authority or trademark rights.
+
+Existing creator rows created before this change have no owner key. The migration leaves those records intact, but they cannot be newly approved or publish posts until a separate, operator-reviewed ownership-claim process is built. Do not attach a new key to an old handle by trusting a typed handle alone.
+
+## Moderation and abuse reports
+
+- `POST /api/v1/reports` — submit a report.
+- `GET /api/v1/moderation/queue` — operator-only pending creator, post and report queue.
+- `POST /api/v1/moderation/reports/{id}` — set a pending report to `reviewed` or `dismissed`.
+- `POST /api/v1/moderation/creators/{id}` — approve or reject a pending profile. Approval requires verified owner-key fields.
+- `POST /api/v1/moderation/posts/{id}` — approve or reject a pending post.
+
+Every moderation endpoint requires `Authorization: Bearer <ADMIN_TOKEN>`. Configure the secret with `wrangler secret put ADMIN_TOKEN`; never put it in frontend source, repository files, URL query parameters or local storage. The operator console sends it in an Authorization header and keeps it only in the current page's password field. Use it only on a trusted device.
+
+This is still a prototype moderation system: it does not yet have operator identity management, MFA, durable moderation audit logs, appeals, automatic abuse detection or a hardened admin origin. Add those and obtain a security review before public production operation.
+
+## Other API routes
+
 - `GET /health` — health check.
-- `GET /api/v1/registry?limit=50&offset=0` — public registry page.
-- `GET /api/v1/resolve/{label}` — fetch and cryptographically verify one record.
-- `POST /api/v1/identities` — claim a globally unique label by submitting a signed public record.
+- `GET /api/v1/registry?limit=50&offset=0` — public signed identity registry.
+- `GET /api/v1/resolve/{label}` — fetch and verify one identity record.
+- `POST /api/v1/identities` — claim a unique label with a signed ECDSA P-256 record.
+- `GET /api/v1/creators` — approved creator directory.
+- `POST /api/v1/creators` — enroll a key-backed creator profile.
+- `GET /api/v1/creators/by-key/{sha256-fingerprint}` — resolve public creator ID, handle and status for a locally stored key; this does not grant write access.
+- `GET /api/v1/posts` — approved public posts.
+- `POST /api/v1/posts` — submit a post signed by the enrolled creator key.
+- `POST /api/v1/ai/chat` — optional server-side model proxy; requires separately configured OpenAI API credentials and can incur provider charges.
 
-The Worker verifies the ECDSA P-256/SHA-256 signature and public-key fingerprint. D1 enforces unique labels and fingerprints. A self-signed record proves control of a key, not a real-world person's identity or a trademark right.
+The identity registry's self-signed records prove key control, not real-world identity or trademark rights. The IP rate limiter is a basic D1 counter, not a distributed abuse-control service.
 
-## Deploy (free-tier account required)
-1. Create a Cloudflare account and install Wrangler on a computer with Node.js: `npm install -g wrangler`.
-2. From this folder run `wrangler login`.
-3. Create the D1 database: `wrangler d1 create ultra-registry`.
-4. Copy the returned database ID into `wrangler.toml`, replacing `REPLACE_WITH_YOUR_D1_DATABASE_ID`.
-5. Initialize the schema: `wrangler d1 execute ultra-registry --file=./schema.sql`.
-6. Set `ALLOWED_ORIGIN` in `wrangler.toml` to the exact HTTPS origin serving the frontend (no trailing slash).
-7. Deploy: `wrangler deploy`.
-8. Test `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/health`.
+## D1 setup and migration
 
-## Connect the frontend
-Open `shared.html`, enter the deployed Worker base URL, then import the public JSON exported from `network.html`. Select an identity and publish it to the shared registry. Other visitors can then resolve it from the same Worker URL.
+For a **new database**, create the database, set its ID in `wrangler.toml`, then apply the complete current schema:
 
-## Security / production notes
-- This is an early prototype. Do not use it for valuable identity claims or critical infrastructure.
-- Rate limiting here is a basic IP counter in D1, not a robust distributed abuse-control system.
-- There is no account login, recovery, ownership transfer, record update/revocation, appeal process, trademark review, or admin moderation UI yet.
-- Add monitoring, backups, key rotation/recovery, abuse workflows, security review and terms/privacy pages before public production use.
-- Never put private keys or Cloudflare API tokens in frontend code or Git.
+```sh
+wrangler d1 create ultra-registry
+wrangler d1 execute ultra-registry --remote --file=./schema.sql
+```
 
+For an **existing database** created from an earlier version of this project, apply the one-time migration from the `worker` directory:
 
-## Creator network API (added)
-Apply the latest schema to D1 after updating the Worker:
-`wrangler d1 execute ultra-registry --file=./schema.sql`
+```sh
+wrangler d1 execute ultra-registry --remote --file=./migrations/0002_creator_key_ownership.sql
+```
 
-Configure the operator moderation secret (do not commit it):
-`wrangler secret put ADMIN_TOKEN`
+Do not apply that migration more than once. It adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows.
 
-New endpoints:
-- `GET /api/v1/creators` — approved creator profiles.
-- `POST /api/v1/creators` — submit a profile for approval.
-- `GET /api/v1/posts` — approved feed.
-- `POST /api/v1/posts` — submit a post (requires an approved creator handle).
-- `POST /api/v1/reports` — report suspected abuse.
-- `GET /api/v1/moderation/queue` — protected pending creator/post/report queue.
-- `POST /api/v1/moderation/creators/{id}` and `POST /api/v1/moderation/posts/{id}` — operator approval/rejection with `Authorization: Bearer <ADMIN_TOKEN>` and JSON `{"status":"approved"}` or `{"status":"rejected"}`.
+## Worker configuration and deployment
 
-Pending items are not returned by public endpoints. The included moderation console is a basic bearer-token prototype, not a hardened admin system. Use it only on a trusted device; deploy HTTPS, rotate the secret, add stronger authentication and audit logging before public operation. Never expose ADMIN_TOKEN in browser JavaScript or commit it to Git.
+1. Install Node.js 20 or newer and Wrangler.
+2. From this directory, run `wrangler login` using the account owner.
+3. Create a D1 database if one does not already exist. Set its actual ID in `wrangler.toml`; do not commit credentials.
+4. Apply either the new-database schema or the one-time existing-database migration above.
+5. Set `ALLOWED_ORIGIN` to the exact HTTPS frontend origin, without a trailing slash.
+6. Set the operator secret: `wrangler secret put ADMIN_TOKEN`.
+7. For the optional AI endpoint, set `OPENAI_API_KEY` as a Worker secret and set `OPENAI_MODEL` to a model available to the API account. API billing may be required.
+8. Only after explicit operator approval, deploy with `wrangler deploy` and test `/health`.
 
+No production settings, D1 database or Worker were changed by this code update.
 
-The protected moderation queue is available at `GET /api/v1/moderation/queue` with `Authorization: Bearer <ADMIN_TOKEN>`. The `platform.html` operator panel can load the queue and approve/reject creators and posts. Reports are returned for inspection; report-resolution actions are not yet implemented.
+## Tests
 
+From this directory:
 
-## Security hardening update
-- Abuse reports can now be resolved by an operator with `POST /api/v1/moderation/reports/{id}`, an `Authorization: Bearer <ADMIN_TOKEN>` header, and JSON status `{"status":"reviewed"}` or `{"status":"dismissed"}`.
-- The moderation UI exposes these report actions. Only pending reports can be changed.
-- **Creator post publishing is intentionally disabled (HTTP 503)** until creator ownership is verified cryptographically. The previous handle-only API allowed anyone to submit under an approved handle. Do not re-enable it until a signed creator-key enrollment and signed post verification flow is implemented.
-- The duplicate moderation queue handler has been removed. The queue and report actions require the operator secret.
-- Apply the current `worker/src/index.js` update when deploying. Existing D1 schema already includes the report status field; no schema migration is required for report resolution.
+```sh
+npm test
+```
 
-### Static security checks
-Run from the repository root with Node.js 18 or newer:
-`node --test worker/tests/security.test.mjs`
-These checks inspect key source invariants; they are not a substitute for integration tests against a deployed Worker and D1 database.
+The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection and report moderation authorization. It does not replace a live Cloudflare D1 integration test or external security review.
