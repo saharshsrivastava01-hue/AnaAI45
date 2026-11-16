@@ -17,7 +17,15 @@
 </div><div class="two section"><div class="glass"><div class="head"><h2>Business launch cockpit</h2><span class="pill">FOUNDER VIEW</span></div><p class="muted">Build a focused store, validate demand with real customers, then invest in fulfilment and automation only after evidence of sales.</p><div class="three"><div><div class="metric">01</div><div class="tiny">Choose niche</div></div><div><div class="metric">07</div><div class="tiny">Validate days</div></div><div><div class="metric">30</div><div class="tiny">Launch sprint</div></div></div></div><div class="glass"><h2>Quick launch</h2><div class="actions"><button class="primary" onclick="go('prompt')">Improve a prompt</button><button onclick="go('products')">Add product</button><button onclick="go('shop')">Preview store</button><button onclick="go('growth')">Draft campaign</button></div><p class="footer">This prototype does not publish products, collect payment, or generate visitors by itself.</p></div></div>
 <div class="glass section"><div class="head"><h2>Recent local orders</h2><button onclick="go('orders')">Open ledger →</button></div><div id="recentOrders" class="muted">No demo orders yet.</div></div></section>
 
-<section class="page hide" id="prompt"><div class="two"><div class="glass"><div class="head"><h2>✧ Prompt improver machine</h2><span class="pill">PROMPT ENGINE / LOCAL</span></div><p class="muted">Turn a rough request into a structured, testable prompt. The improver uses a local template and does not call ChatGPT or another model.</p><label>Your rough prompt</label><textarea id="rawPrompt" class="field" rows="7" placeholder="Example: make me a global clothing store with AI marketing"></textarea><label>Choose output goal</label><select id="promptGoal" class="field"><option value="software">Build software / website</option><option value="marketing">Marketing campaign</option><option value="business">Business plan</option><option value="research">Research and comparison</option><option value="content">Social video / content</option><option value="general">General task</option></select><label>Detail level</label><select id="promptDetail" class="field"><option value="balanced">Balanced and practical</option><option value="deep">Detailed professional brief</option><option value="beginner">Beginner step-by-step</option></select><div class="actions section"><button class="primary" onclick="improvePrompt()">Improve prompt</button><button onclick="clearPrompt()">Clear</button></div></div><div class="glass"><div class="head"><h2>Optimised prompt</h2><span class="pill">COPY READY</span></div><textarea id="improvedPrompt" class="field" rows="17" placeholder="Your structured prompt will appear here…"></textarea><div class="actions section"><button onclick="copyText('improvedPrompt')">Copy improved prompt</button><button onclick="usePromptInAssistant()">Send to store planner</button></div></div></div><div class="notice section">Prompt quality checklist: role · objective · context · constraints · deliverables · acceptance tests · risks · honest capability limits. The prompt is improved by a deterministic local template; it is not an AI-generated critique.</div></section>
+<section class="page hide" id="prompt"><div class="two"><div class="glass"><div class="head"><h2>✧ Prompt improver machine</h2><span class="pill">PROMPT ENGINE / LOCAL</span></div><p class="muted">Turn a rough request into a structured, testable prompt. The improver uses a local template and does not call ChatGPT or another model.</p><label>Your rough prompt</label><textarea id="rawPrompt" class="field" rows="7" placeholder="Example: make me a global clothing store with AI marketing"></textarea><label>Choose output goal</label><select id="promptGoal" class="field"><option value="software">Build software / website</option><option value="marketing">Marketing campaign</option><option value="business">Business plan</option><option value="research">Research and comparison</option><option value="content">Social video / content</option><option value="general">General task</option></select><label>Detail level</label><select id="promptDetail" class="field"><option value="balanced">Balanced and practical</option><option value="deep">Detailed professional brief</option><option value="beginner">Beginner step-by-step</option></select><div class="actions section"><button class="primary" onclick="improvePrompt()">Improve prompt</button><button onclick="clearPrompt()">Clear</button></div></div><div class="glass"><div class="head"><h2>Optimised prompt</h2><span class="pill">COPY READY</span></div><textarea id="improvedPrompt" class="field" rows="17" placeholder="Your structured prompt will appear here…"></textarea><div class="actions section"><button onclick="copyText('improvedPrompt')">Copy improved prompt</button><button onclick="usePromptInAssistant()">Send to store planner</button></div></div></div><div class="notice section">Prompt quality checklist: role · objective · context · constraints · deliverables · acceptance tests · risks · honest capability limits. The prompt is improved by a deterministic local template; it is not an AI-generated critique.</div>
+<div class="glass section"><div class="head"><h2>🧠 Local generative AI engine</h2><span class="pill">NO API KEY · ON-DEVICE</span></div>
+<p class="muted">Optional pretrained 350M-parameter language model. It downloads model files from Hugging Face the first time, then runs inference in this browser. No ChatGPT connection and no fine-tuning of the model.</p>
+<div class="actions"><button class="primary" id="loadModelBtn" onclick="loadNexusModel()">Load local AI model</button><span id="modelStatus" class="tiny">Not loaded · model download required</span></div>
+<label>Ask NEXUS AI about your store</label><textarea id="modelQuestion" class="field" rows="4" placeholder="Example: create a 7-day launch plan for a small clothing store with no advertising budget."></textarea>
+<div class="actions section"><button id="generateModelBtn" onclick="generateNexusAnswer()" disabled>Generate with local model</button><span class="tiny">First download is about 276 MB for Q4 weights, plus runtime files. Use Wi-Fi if possible.</span></div>
+<label>Model response</label><textarea id="modelAnswer" class="field" rows="8" readonly placeholder="The generated answer will appear here…"></textarea>
+<div class="footer">Model: onnx-community/LFM2.5-350M-ONNX · Transformers.js · Browser inference. Output quality and speed are limited by this small model and your device. A browser tab must remain open while it runs.</div>
+</div></section>
 
 <section class="page hide" id="shop"><div class="glass"><div class="head"><div><h2>Customer storefront preview</h2><div class="muted">Demo catalogue · test cart · local browser only</div></div><input id="shopSearch" class="field" style="max-width:230px" placeholder="Search catalogue…" oninput="renderShop()"></div><div class="product-grid" id="shopProducts"></div><div class="head section"><div><b>Cart: <span id="cartCount">0</span> items</b><div class="price" id="cartTotal">₹0</div></div><button class="primary" onclick="placeDemoOrder()">Place demo order</button></div><div class="notice">Checkout only creates a local test record. No money is charged, inventory is not reserved, and no delivery is arranged.</div></div></section>
 
@@ -68,4 +76,46 @@ function exportAll(){let b=new Blob([JSON.stringify({db,cart,exportedAt:new Date
 function resetApp(){if(confirm('Reset products and orders in this browser?')){localStorage.removeItem(KEY);db={products:seed,orders:[]};cart={};save();toast('Local demo reset')}}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 refresh();calcGMV();
-</script></body></html>
+</script>
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
+const MODEL_ID = "onnx-community/LFM2.5-350M-ONNX";
+let nexusGenerator = null;
+window.loadNexusModel = async function(){
+ const status=document.getElementById("modelStatus"),btn=document.getElementById("loadModelBtn"),gen=document.getElementById("generateModelBtn");
+ btn.disabled=true; status.textContent="Loading model files… first run may take time.";
+ try {
+   if(navigator.gpu){
+     status.textContent="Trying WebGPU acceleration… downloading model weights.";
+     try { nexusGenerator=await pipeline("text-generation",MODEL_ID,{dtype:"q4",device:"webgpu"}); }
+     catch(webgpuError){ status.textContent="WebGPU unavailable; retrying with CPU/WASM…"; nexusGenerator=await pipeline("text-generation",MODEL_ID,{dtype:"q4"}); }
+   } else {
+     status.textContent="WebGPU not detected; loading CPU/WASM model…";
+     nexusGenerator=await pipeline("text-generation",MODEL_ID,{dtype:"q4"});
+   }
+   status.textContent="Model loaded in this tab · ready for inference.";
+   gen.disabled=false; btn.textContent="Model loaded";
+ } catch(err) {
+   status.textContent="Could not load model: "+(err?.message||String(err)).slice(0,180);
+   btn.disabled=false;
+ }
+};
+window.generateNexusAnswer=async function(){
+ const question=document.getElementById("modelQuestion").value.trim(),out=document.getElementById("modelAnswer"),btn=document.getElementById("generateModelBtn");
+ if(!nexusGenerator){window.loadNexusModel();return}
+ if(!question){out.value="Enter a question first.";return}
+ btn.disabled=true;btn.textContent="Generating…";out.value="Generating locally. Keep this tab open…";
+ try{
+  const messages=[
+   {role:"system",content:"You are NEXUS Commerce Copilot, a practical ecommerce planning assistant. Give concise, actionable advice. Separate assumptions from facts. Do not invent market data, customers, revenue, supplier prices, legal compliance, or successful integrations. The store is currently a local prototype; checkout is simulated and no payment, backend, or fulfilment service is connected. Prefer low-cost, beginner-friendly steps."},
+   {role:"user",content:question}
+  ];
+  const result=await nexusGenerator(messages,{max_new_tokens:320,do_sample:false});
+  const last=result?.[0]?.generated_text;
+  out.value=Array.isArray(last)?(last.at(-1)?.content||JSON.stringify(last)):String(last||"No text returned.");
+ }catch(err){out.value="Inference error: "+(err?.message||String(err));}
+ finally{btn.disabled=false;btn.textContent="Generate with local model";}
+};
+</script>
+
+</body></html>
