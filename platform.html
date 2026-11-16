@@ -85,20 +85,21 @@ async function refreshAccounts(selectedHandle) {
   try { accounts = await listKeys(); } catch (e) { msg("accountStatus", e.message, false); return; }
   if (base()) {
     for (const account of accounts) {
-      if (!account.creatorId) {
-        try {
-          const owner = await call("/api/v1/creators/by-key/" + account.fingerprint);
-          account.creatorId = owner.id;
-          account.status = owner.status;
-          await saveKey(account);
+      try {
+        const owner = await call("/api/v1/creators/by-key/" + account.fingerprint);
+        account.creatorId = owner.id;
+        account.status = owner.status;
+        await saveKey(account);
       } catch {}
     }
   }
   accounts = await listKeys();
   const select = $("creatorAccount");
-  select.innerHTML = accounts.length ? accounts.map(a => '<option value="' + esc(a.handle) + '">' + esc(a.handle) + ' · ' + esc(a.status || (a.creatorId ? "registered" : "local key")) + '</option>').join("") : '<option value="">No local creator keys found</option>';
+  select.innerHTML = accounts.length
+    ? accounts.map(a => '<option value="' + esc(a.handle) + '">' + esc(a.handle) + ' · ' + esc(a.status || (a.creatorId ? "registered" : "local key")) + '</option>').join("")
+    : '<option value="">No local creator keys found</option>';
   if (selectedHandle && accounts.some(a => a.handle === selectedHandle)) select.value = selectedHandle;
-  updateAccountStatus();
+  await updateAccountStatus();
 }
 async function selectedAccount() {
   const handle = $("creatorAccount").value;
