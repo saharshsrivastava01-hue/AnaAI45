@@ -33,3 +33,17 @@ Add a secure backend/database, authentication and role permissions, verified pro
 
 ## GMV target math
 ₹10 crore GMV at ₹2,000 average order value requires 50,000 orders. GMV is gross order value, not profit or revenue retained. Deduct product costs, fulfilment, payment fees, taxes, refunds, marketing and overhead.
+
+## Optional browser-based generative AI
+The NEXUS 5D page now includes an opt-in local model loader:
+- Model: `onnx-community/LFM2.5-350M-ONNX` (350M parameters)
+- Runtime: Transformers.js in the browser; attempts WebGPU, then falls back to CPU/WASM.
+- No API key or hosted inference endpoint is required.
+- The first use downloads the quantized model files (the model card lists the Q4 weights at approximately 276 MB), plus runtime assets. A stable internet connection is needed for that first download. Browser/device support and available memory affect whether it runs.
+- This is inference using a pretrained model, not training or fine-tuning a new NEXUS model. It is a small model and may make mistakes.
+
+Official references:
+- Transformers.js browser inference: https://huggingface.co/docs/transformers.js/en/index
+- Model card and runtime example: https://huggingface.co/onnx-community/LFM2.5-350M-ONNX
+
+The local model does not add a secure backend, persistent shared customer data, real payment processing, or fulfilment. Do not use it to handle payment credentials or sensitive customer information.
