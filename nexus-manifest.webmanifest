@@ -1,0 +1,10 @@
+{
+  "name": "NEXUS AI Global Commerce",
+  "short_name": "NEXUS",
+  "start_url": "./nexus-ai-commerce-platform.html",
+  "display": "standalone",
+  "background_color": "#080d18",
+  "theme_color": "#080d18",
+  "description": "API-free local commerce planning and storefront prototype",
+  "icons": []
+}
