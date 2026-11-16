@@ -53,7 +53,8 @@ test("moderation UI contains report actions and keeps the token in the current f
 });
 
 test("static creator frontend JavaScript parses without syntax errors", () => {
-  const match = platform.match(/<script>([\\s\\S]*?)<\\/script>/);
-  assert.ok(match, "platform.html must contain its client script");
-  assert.doesNotThrow(() => new Script(match[1]));
+  const start = platform.indexOf("<script>");
+  const end = platform.lastIndexOf("</script>");
+  assert.ok(start >= 0 && end > start, "platform.html must contain its client script");
+  assert.doesNotThrow(() => new Script(platform.slice(start + 8, end)));
 });
