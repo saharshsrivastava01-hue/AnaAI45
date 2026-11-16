@@ -24,7 +24,7 @@ test("report resolution is operator protected and only permits pending reports",
 test("creator enrollment stores a public P-256 key only after signature verification", () => {
   assert.match(worker, /verifyDetachedSignature\(publicKey, signature, fingerprint, claim\)/);
   assert.match(worker, /owner_public_key,owner_fingerprint,ownership_verified_at/);
-  assert.match(worker, /idx_creators_owner_fingerprint/);
+  assert.match(schema, /idx_creators_owner_fingerprint/);
   assert.match(schema, /owner_public_key TEXT/);
   assert.match(schema, /owner_fingerprint TEXT/);
   assert.match(migration, /ALTER TABLE creators ADD COLUMN owner_public_key TEXT/);
