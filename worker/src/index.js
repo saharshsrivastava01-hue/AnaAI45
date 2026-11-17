@@ -227,7 +227,8 @@ async function handle(request, env) {
     const creators=await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at,ownership_verified_at,owner_fingerprint FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     const posts=await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all();
     const reports=await env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
-    return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[]},200,headers);
+    const events=await env.DB.prepare("SELECT id,target_type,target_id,action,from_status,to_status,actor_type,created_at FROM moderation_events ORDER BY created_at DESC LIMIT 50").all();
+    return response({creators:creators.results||[],posts:posts.results||[],reports:reports.results||[],events:events.results||[]},200,headers);
   }
 
 
@@ -240,9 +241,17 @@ async function handle(request, env) {
     if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
     const b = parsed.value;
     if (!["reviewed", "dismissed"].includes(b.status)) return response({ error: "Status must be reviewed or dismissed." }, 400, headers);
-    const result = await env.DB.prepare("UPDATE abuse_reports SET status=? WHERE id=? AND status='pending'").bind(b.status, reportModeration[1]).run();
-    if (!result.meta || result.meta.changes === 0) return response({ error: "Pending report not found." }, 404, headers);
-    return response({ ok: true, status: b.status }, 200, headers);
+    const eventId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const audit = env.DB.prepare(`
+      INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,actor_type,created_at)
+      SELECT ?, 'report', id, ?, 'pending', ?, 'shared-admin-token', ?
+      FROM abuse_reports WHERE id=? AND status='pending'
+    `).bind(eventId, b.status, b.status, now, reportModeration[1]);
+    const update = env.DB.prepare("UPDATE abuse_reports SET status=? WHERE id=? AND status='pending'").bind(b.status, reportModeration[1]);
+    const results = await env.DB.batch([audit, update]);
+    if (!results[1]?.meta || results[1].meta.changes === 0) return response({ error: "Pending report not found." }, 404, headers);
+    return response({ ok: true, status: b.status, eventId }, 200, headers);
   }
   // Operator-only moderation. Creator approval requires a verified owner key.
   const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
@@ -255,14 +264,24 @@ async function handle(request, env) {
     const status = b.status;
     if (!["approved", "rejected"].includes(status)) return response({ error: "Status must be approved or rejected." }, 400, headers);
     const table = moderation[1] === "creators" ? "creators" : "posts";
-    let result;
-    if (table === "creators" && status === "approved") {
-      result = await env.DB.prepare("UPDATE creators SET status=? WHERE id=? AND status='pending' AND owner_public_key IS NOT NULL AND owner_fingerprint IS NOT NULL AND ownership_verified_at IS NOT NULL").bind(status, moderation[2]).run();
-    } else {
-      result = await env.DB.prepare("UPDATE " + table + " SET status=? WHERE id=? AND status='pending'").bind(status, moderation[2]).run();
-    }
-    if (!result.meta || result.meta.changes === 0) return response({ error: table === "creators" && status === "approved" ? "Pending creator not found or verified owner proof is missing." : "Pending submission not found." }, 409, headers);
-    return response({ ok: true, status }, 200, headers);
+    const targetType = table === "creators" ? "creator" : "post";
+    const targetId = moderation[2];
+    const eventId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const ownerGuard = table === "creators" && status === "approved"
+      ? " AND owner_public_key IS NOT NULL AND owner_fingerprint IS NOT NULL AND ownership_verified_at IS NOT NULL"
+      : "";
+    const audit = env.DB.prepare(`
+      INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,actor_type,created_at)
+      SELECT ?, ?, id, ?, 'pending', ?, 'shared-admin-token', ?
+      FROM ${table} WHERE id=? AND status='pending'${ownerGuard}
+    `).bind(eventId, targetType, status, status, now, targetId);
+    const update = table === "creators" && status === "approved"
+      ? env.DB.prepare("UPDATE creators SET status=? WHERE id=? AND status='pending' AND owner_public_key IS NOT NULL AND owner_fingerprint IS NOT NULL AND ownership_verified_at IS NOT NULL").bind(status, targetId)
+      : env.DB.prepare("UPDATE " + table + " SET status=? WHERE id=? AND status='pending'").bind(status, targetId);
+    const results = await env.DB.batch([audit, update]);
+    if (!results[1]?.meta || results[1].meta.changes === 0) return response({ error: table === "creators" && status === "approved" ? "Pending creator not found or verified owner proof is missing." : "Pending submission not found." }, 409, headers);
+    return response({ ok: true, status, eventId }, 200, headers);
   }
   return response({ error: "Not found", routes: ["GET /health", "GET /api/v1/registry", "GET /api/v1/resolve/{label}", "POST /api/v1/identities"] }, 404, headers);
 }
