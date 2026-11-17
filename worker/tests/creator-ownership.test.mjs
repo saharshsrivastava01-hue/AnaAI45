@@ -11,8 +11,14 @@ class FakeD1 {
     this.creators = new Map();
     this.posts = new Map();
     this.reports = new Map();
+    this.moderationEvents = new Map();
   }
   prepare(sql) { return new FakeStatement(this, sql); }
+  async batch(statements) {
+    const results = [];
+    for (const statement of statements) results.push(await statement.run());
+    return results;
+  }
 }
 class FakeStatement {
   constructor(db, sql) { this.db = db; this.sql = sql; this.values = []; }
@@ -48,10 +54,34 @@ class FakeStatement {
     if (this.sql.includes("FROM abuse_reports WHERE status='pending'")) {
       return { results:[...this.db.reports.values()].filter(x => x.status === "pending").map(x => ({...x})) };
     }
+    if (this.sql.includes("FROM moderation_events ORDER BY")) {
+      return { results:[...this.db.moderationEvents.values()].sort((a,b) => b.created_at.localeCompare(a.created_at)).map(x => ({...x})) };
+    }
     return { results:[] };
   }
   async run() {
     const v = this.values;
+    if (this.sql.trimStart().startsWith("INSERT INTO moderation_events")) {
+      let eventId, targetType, action, toStatus, createdAt, targetId, row, requiresOwner = false;
+      if (this.sql.includes("FROM abuse_reports")) {
+        [eventId, action, toStatus, createdAt, targetId] = v;
+        targetType = "report";
+        row = this.db.reports.get(targetId);
+      } else {
+        [eventId, targetType, action, toStatus, createdAt, targetId] = v;
+        const map = targetType === "creator" ? this.db.creators : this.db.posts;
+        row = map.get(targetId);
+        requiresOwner = this.sql.includes("owner_public_key IS NOT NULL");
+      }
+      if (!row || row.status !== "pending" || (requiresOwner && (!row.owner_public_key || !row.owner_fingerprint || !row.ownership_verified_at))) {
+        return { meta:{ changes:0 } };
+      }
+      this.db.moderationEvents.set(eventId, {
+        id:eventId,target_type:targetType,target_id:targetId,action,from_status:"pending",
+        to_status:toStatus,actor_type:"shared-admin-token",created_at:createdAt
+      });
+      return { meta:{ changes:1 } };
+    }
     if (this.sql.startsWith("INSERT INTO rate_limits")) {
       this.db.rates.set(v[0], { hits:1, window_started:v[1] });
       return { meta:{ changes:1 } };
@@ -162,6 +192,9 @@ test("a verified creator can be approved and resolve its local key after refresh
   const approval = await request("POST", "/api/v1/moderation/creators/" + result.data.id, { status:"approved" }, "test-admin-token");
   assert.equal(approval.status, 200);
   assert.equal(db.creators.get(result.data.id).status, "approved");
+  const event = [...db.moderationEvents.values()].find(x => x.target_id === result.data.id);
+  assert.equal(event?.target_type, "creator");
+  assert.equal(event?.to_status, "approved");
 });
 
 test("post publishing requires a signature from the creator's enrolled key", async () => {
@@ -184,6 +217,11 @@ test("post publishing requires a signature from the creator's enrolled key", asy
   assert.equal(db.posts.get(post.id).author_fingerprint, result.fingerprint);
   const replay = await request("POST", "/api/v1/posts", { ...post, signature });
   assert.equal(replay.status, 409);
+  const approval = await request("POST", "/api/v1/moderation/posts/" + post.id, { status:"approved" }, "test-admin-token");
+  assert.equal(approval.status, 200);
+  const event = [...db.moderationEvents.values()].find(x => x.target_id === post.id);
+  assert.equal(event?.target_type, "post");
+  assert.equal(event?.to_status, "approved");
 });
 
 test("legacy creators without an enrolled owner key cannot publish or be approved", async () => {
@@ -207,8 +245,18 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   const reviewed = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"reviewed" }, "test-admin-token");
   assert.equal(reviewed.status, 200);
   assert.equal(db.reports.get(report.id).status, "reviewed");
+  assert.equal(db.moderationEvents.size, 1);
+  const event = [...db.moderationEvents.values()][0];
+  assert.equal(event.target_type, "report");
+  assert.equal(event.action, "reviewed");
+  assert.equal(event.actor_type, "shared-admin-token");
   const repeated = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" }, "test-admin-token");
   assert.equal(repeated.status, 404);
+  assert.equal(db.moderationEvents.size, 1);
+  const queue = await request("GET", "/api/v1/moderation/queue", undefined, "test-admin-token");
+  const queueData = await queue.json();
+  assert.equal(queue.status, 200);
+  assert.equal(queueData.events.length, 1);
 });
 
 
