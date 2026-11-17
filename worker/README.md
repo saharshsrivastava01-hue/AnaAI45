@@ -30,6 +30,8 @@ Existing creator rows created before this change have no owner key. The migratio
 - `POST /api/v1/reports` — submit a report.
 - `GET /api/v1/moderation/queue` — operator-only pending creator, post and report queue.
 - `POST /api/v1/moderation/reports/{id}` — set a pending report to `reviewed` or `dismissed`.
+- Each successful report, creator or post status transition is recorded in `moderation_events` in the same D1 batch as the status update. The private queue returns the 50 most recent events.
+- The current audit actor label is `shared-admin-token`. It records that the shared operator credential was used; it does **not** identify an individual moderator. Individual operator accounts and MFA remain future work.
 - `POST /api/v1/moderation/creators/{id}` — approve or reject a pending profile. Approval requires verified owner-key fields.
 - `POST /api/v1/moderation/posts/{id}` — approve or reject a pending post.
 
@@ -69,13 +71,14 @@ wrangler d1 create ultra-registry
 wrangler d1 execute ultra-registry --remote --file=./schema.sql
 ```
 
-For an **existing database** created from an earlier version of this project, apply the one-time migration from the `worker` directory:
+For an **existing database** created from an earlier version of this project, apply the migrations from the `worker` directory in order:
 
 ```sh
 wrangler d1 execute ultra-registry --remote --file=./migrations/0002_creator_key_ownership.sql
+wrangler d1 execute ultra-registry --remote --file=./migrations/0003_moderation_audit_log.sql
 ```
 
-Do not apply that migration more than once. It adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows.
+Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migration 0003 creates the moderation event log and its indexes; it is safe to re-run because it uses `IF NOT EXISTS`.
 
 ## Worker configuration and deployment
 
