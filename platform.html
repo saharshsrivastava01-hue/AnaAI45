@@ -209,6 +209,15 @@ async function loadQueue() {
         '<button class="btn" data-report-id="' + esc(r.id) + '" data-report-status="reviewed">Mark reviewed</button>' +
         '<button class="btn alt" data-report-id="' + esc(r.id) + '" data-report-status="dismissed">Dismiss</button></article>';
     }
+    if ((d.events || []).length) {
+      html += '<section class="post"><h3>Recent moderation activity</h3>';
+      for (const event of d.events) {
+        html += '<p class="small">' + esc(event.target_type) + ' ' + esc(event.target_id) + ' · ' +
+          esc(event.from_status) + ' → ' + esc(event.to_status) + ' · ' +
+          esc(event.actor_type) + ' · ' + esc(new Date(event.created_at).toLocaleString()) + '</p>';
+      }
+      html += '</section>';
+    }
     if (!html) html = "<p>No pending submissions or reports.</p>";
     $("queue").innerHTML = html;
     msg("queue", "Loaded " + d.creators.length + " creator(s), " + d.posts.length + " post(s), " + d.reports.length + " report(s).", true);
