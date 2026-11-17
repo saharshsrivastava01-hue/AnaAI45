@@ -236,6 +236,7 @@ test("legacy creators without an enrolled owner key cannot publish or be approve
 });
 
 test("abuse reports can only be resolved by an operator and only once", async () => {
+  const eventsBefore = db.moderationEvents.size;
   const created = await request("POST", "/api/v1/reports", { label:"spam-account", reason:"Spam", details:"Repeated spam" });
   assert.equal(created.status, 201);
   const report = [...db.reports.values()][0];
@@ -245,18 +246,18 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   const reviewed = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"reviewed" }, "test-admin-token");
   assert.equal(reviewed.status, 200);
   assert.equal(db.reports.get(report.id).status, "reviewed");
-  assert.equal(db.moderationEvents.size, 1);
-  const event = [...db.moderationEvents.values()][0];
+  assert.equal(db.moderationEvents.size, eventsBefore + 1);
+  const event = [...db.moderationEvents.values()].find(x => x.target_id === report.id);
   assert.equal(event.target_type, "report");
   assert.equal(event.action, "reviewed");
   assert.equal(event.actor_type, "shared-admin-token");
   const repeated = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" }, "test-admin-token");
   assert.equal(repeated.status, 404);
-  assert.equal(db.moderationEvents.size, 1);
+  assert.equal(db.moderationEvents.size, eventsBefore + 1);
   const queue = await request("GET", "/api/v1/moderation/queue", undefined, "test-admin-token");
   const queueData = await queue.json();
   assert.equal(queue.status, 200);
-  assert.equal(queueData.events.length, 1);
+  assert.equal(queueData.events.length, db.moderationEvents.size);
 });
 
 
