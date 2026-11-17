@@ -250,6 +250,7 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   const unauthorized = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" });
   assert.equal(unauthorized.status, 401);
   assert.equal(db.reports.get(report.id).status, "pending");
+  assert.equal(db.moderationEvents.size, eventsBefore);
   const reviewed = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"reviewed" }, "test-admin-token");
   assert.equal(reviewed.status, 200);
   assert.equal(db.reports.get(report.id).status, "reviewed");
