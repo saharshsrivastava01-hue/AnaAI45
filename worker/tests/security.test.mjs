@@ -86,5 +86,5 @@ test("moderation status changes have an append-only audit trail", () => {
   assert.match(worker, /env\.DB\.batch\(\[audit, update\]\)/);
   assert.match(worker, /FROM moderation_events ORDER BY created_at DESC LIMIT 50/);
   assert.match(platform, /Recent moderation activity/);
-  assert.match(platform, /shared-admin-token/);
+  assert.match(platform, /event\.actor_type/);
 });
