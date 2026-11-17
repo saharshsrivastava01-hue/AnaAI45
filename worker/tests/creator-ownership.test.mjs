@@ -19,6 +19,14 @@ class FakeStatement {
   bind(...values) { this.values = values; return this; }
   async first() {
     const v = this.values;
+    if (this.sql.startsWith("INSERT INTO rate_limits")) {
+      const [bucket, now] = v;
+      let row = this.db.rates.get(bucket);
+      if (!row || now - row.window_started >= 60) row = { hits:1, window_started:now };
+      else row.hits += 1;
+      this.db.rates.set(bucket, row);
+      return { hits:row.hits };
+    }
     if (this.sql.startsWith("SELECT hits, window_started FROM rate_limits")) return this.db.rates.get(v[0]) || null;
     if (this.sql.startsWith("SELECT id,handle,status FROM creators WHERE owner_fingerprint")) {
       const row = [...this.db.creators.values()].find(x => x.owner_fingerprint === v[0]);
@@ -93,13 +101,18 @@ class FakeStatement {
 
 const db = new FakeD1();
 const env = { DB:db, ALLOWED_ORIGIN:"https://ultra.test", ADMIN_TOKEN:"test-admin-token" };
-async function request(method, path, body, token) {
-  const headers = { Origin:"https://ultra.test" };
+async function request(method, path, body, token, ip = "203.0.113.10") {
+  const headers = { Origin:"https://ultra.test", "CF-Connecting-IP":ip };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token) headers.authorization = "Bearer " + token;
   return worker.fetch(new Request("https://worker.test" + path, {
     method, headers, body:body === undefined ? undefined : JSON.stringify(body)
   }), env);
+}
+async function rawRequest(method, path, rawBody, token, ip = "203.0.113.10") {
+  const headers = { Origin:"https://ultra.test", "CF-Connecting-IP":ip, "content-type":"application/json" };
+  if (token) headers.authorization = "Bearer " + token;
+  return worker.fetch(new Request("https://worker.test" + path, { method, headers, body:rawBody }), env);
 }
 async function makeKeyPair() {
   const pair = await crypto.subtle.generateKey({ name:"ECDSA", namedCurve:"P-256" }, false, ["sign","verify"]);
@@ -196,4 +209,29 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   assert.equal(db.reports.get(report.id).status, "reviewed");
   const repeated = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" }, "test-admin-token");
   assert.equal(repeated.status, 404);
+});
+
+
+test("oversized and malformed JSON bodies are rejected before database writes", async () => {
+  const before = db.reports.size;
+  const oversized = await rawRequest(
+    "POST",
+    "/api/v1/reports",
+    JSON.stringify({ label:"large-report", reason:"spam", details:"x".repeat(9000) }),
+    undefined,
+    "203.0.113.11"
+  );
+  assert.equal(oversized.status, 413);
+  assert.equal(db.reports.size, before);
+  const malformed = await rawRequest("POST", "/api/v1/reports", "{", undefined, "203.0.113.12");
+  assert.equal(malformed.status, 400);
+  assert.equal(db.reports.size, before);
+});
+
+test("concurrent requests cannot exceed the atomic per-IP report limit", async () => {
+  const responses = await Promise.all(Array.from({ length:8 }, (_, i) =>
+    request("POST", "/api/v1/reports", { label:"rate-" + i, reason:"spam" }, undefined, "198.51.100.44")
+  ));
+  const statuses = responses.map(x => x.status).sort((a,b) => a-b);
+  assert.deepEqual(statuses, [201,201,201,201,201,429,429,429]);
 });
