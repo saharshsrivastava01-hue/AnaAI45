@@ -177,7 +177,7 @@ async function handle(request, env) {
   // A post is accepted only when signed by the key bound to its creator account.
   if (request.method === "POST" && path === "/api/v1/posts") {
     if (!await rateLimit(request, env, "post", 8)) return response({ error: "Rate limit exceeded." }, 429, headers);
-    const parsed = await readJson(request);
+    const parsed = await readJson(request, 20 * 1024);
     if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
     const b = parsed.value;
     const creatorId = b.creatorId;
