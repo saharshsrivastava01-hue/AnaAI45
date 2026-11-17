@@ -217,8 +217,8 @@ test("post publishing requires a signature from the creator's enrolled key", asy
   assert.equal(db.posts.get(post.id).author_fingerprint, result.fingerprint);
   const replay = await request("POST", "/api/v1/posts", { ...post, signature });
   assert.equal(replay.status, 409);
-  const approval = await request("POST", "/api/v1/moderation/posts/" + post.id, { status:"approved" }, "test-admin-token");
-  assert.equal(approval.status, 200);
+  const postApproval = await request("POST", "/api/v1/moderation/posts/" + post.id, { status:"approved" }, "test-admin-token");
+  assert.equal(postApproval.status, 200);
   const event = [...db.moderationEvents.values()].find(x => x.target_id === post.id);
   assert.equal(event?.target_type, "post");
   assert.equal(event?.to_status, "approved");
