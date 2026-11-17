@@ -118,6 +118,13 @@ class FakeStatement {
       this.db.reports.set(id, { id,label,reason,details,created_at,status:"pending" });
       return { meta:{ changes:1 } };
     }
+    if (this.sql.startsWith("UPDATE posts SET status=?")) {
+      const [status,id] = v;
+      const row = this.db.posts.get(id);
+      if (!row || row.status !== "pending") return { meta:{ changes:0 } };
+      row.status = status;
+      return { meta:{ changes:1 } };
+    }
     if (this.sql.startsWith("UPDATE abuse_reports SET status=?")) {
       const [status,id] = v;
       const row = this.db.reports.get(id);
