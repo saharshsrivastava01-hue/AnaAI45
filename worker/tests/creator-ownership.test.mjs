@@ -19,7 +19,7 @@ class FakeStatement {
   bind(...values) { this.values = values; return this; }
   async first() {
     const v = this.values;
-    if (this.sql.startsWith("INSERT INTO rate_limits")) {
+    if (this.sql.trimStart().startsWith("INSERT INTO rate_limits")) {
       const [bucket, now] = v;
       let row = this.db.rates.get(bucket);
       if (!row || now - row.window_started >= 60) row = { hits:1, window_started:now };
