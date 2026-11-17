@@ -7,6 +7,7 @@ const worker = await readFile(new URL("../src/index.js", import.meta.url), "utf8
 const platform = await readFile(new URL("../../platform.html", import.meta.url), "utf8");
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
 const migration = await readFile(new URL("../migrations/0002_creator_key_ownership.sql", import.meta.url), "utf8");
+const auditMigration = await readFile(new URL("../migrations/0003_moderation_audit_log.sql", import.meta.url), "utf8");
 const http = await readFile(new URL("../src/http.js", import.meta.url), "utf8");
 const ai = await readFile(new URL("../src/ai.js", import.meta.url), "utf8");
 
@@ -75,4 +76,15 @@ test("per-IP rate limits use a single atomic D1 upsert", () => {
   assert.match(http, /RETURNING hits/);
   assert.match(worker, /consumeRateLimit\(env\.DB/);
   assert.match(ai, /consumeRateLimit\(env\.DB/);
+});
+
+
+test("moderation status changes have an append-only audit trail", () => {
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS moderation_events/);
+  assert.match(auditMigration, /CREATE TABLE IF NOT EXISTS moderation_events/);
+  assert.match(worker, /INSERT INTO moderation_events/);
+  assert.match(worker, /env\.DB\.batch\(\[audit, update\]\)/);
+  assert.match(worker, /FROM moderation_events ORDER BY created_at DESC LIMIT 50/);
+  assert.match(platform, /Recent moderation activity/);
+  assert.match(platform, /shared-admin-token/);
 });
