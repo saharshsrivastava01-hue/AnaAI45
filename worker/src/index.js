@@ -1,4 +1,5 @@
 import { handleAI } from "./ai.js";
+import { readJson, consumeRateLimit } from "./http.js";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const RESERVED = new Set(["admin","api","www","root","support","security","ultra","nexora","help","billing","login","signup","settings","mail","ftp","ns1","ns2"]);
 const enc = new TextEncoder();
@@ -54,16 +55,7 @@ async function verifyRecord(record) {
 }
 async function rateLimit(request, env, bucketName, max = 20) {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const bucket = bucketName + ":" + ip;
-  const now = Math.floor(Date.now() / 1000);
-  const row = await env.DB.prepare("SELECT hits, window_started FROM rate_limits WHERE bucket = ?").bind(bucket).first();
-  if (!row || now - row.window_started >= 60) {
-    await env.DB.prepare("INSERT INTO rate_limits(bucket,hits,window_started) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET hits=1, window_started=excluded.window_started").bind(bucket, now).run();
-    return true;
-  }
-  if (row.hits >= max) return false;
-  await env.DB.prepare("UPDATE rate_limits SET hits=hits+1 WHERE bucket=?").bind(bucket).run();
-  return true;
+  return consumeRateLimit(env.DB, bucketName + ":" + ip, max);
 }
 async function verifyDetachedSignature(publicKeyBase64, signatureBase64, fingerprint, payload) {
   try {
@@ -117,8 +109,9 @@ async function handle(request, env) {
   }
   if (request.method === "POST" && path === "/api/v1/identities") {
     if (!await rateLimit(request, env, "claim", 10)) return response({ error: "Rate limit exceeded. Try again in one minute." }, 429, headers);
-    let body;
-    try { body = await request.json(); } catch { return response({ error: "Request body must be JSON." }, 400, headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const body = parsed.value;
     const record = body.record;
     if (!await verifyRecord(record)) return response({ error: "Invalid identity record or signature." }, 400, headers);
     const now = new Date().toISOString();
@@ -141,7 +134,9 @@ async function handle(request, env) {
   // Creator enrollment binds a unique handle to an ECDSA P-256 key.
   if (request.method === "POST" && path === "/api/v1/creators") {
     if (!await rateLimit(request, env, "creator", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
-    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const b = parsed.value;
     const handle = typeof b.handle === "string" ? b.handle.trim().toLowerCase() : "";
     const displayName = typeof b.displayName === "string" ? b.displayName.trim() : "";
     const bio = typeof b.bio === "string" ? b.bio.trim() : "";
@@ -182,7 +177,9 @@ async function handle(request, env) {
   // A post is accepted only when signed by the key bound to its creator account.
   if (request.method === "POST" && path === "/api/v1/posts") {
     if (!await rateLimit(request, env, "post", 8)) return response({ error: "Rate limit exceeded." }, 429, headers);
-    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const b = parsed.value;
     const creatorId = b.creatorId;
     const id = b.id;
     const title = typeof b.title === "string" ? b.title.trim() : "";
@@ -215,7 +212,9 @@ async function handle(request, env) {
   }
   if (request.method === "POST" && path === "/api/v1/reports") {
     if (!await rateLimit(request, env, "report", 5)) return response({ error: "Rate limit exceeded." }, 429, headers);
-    let b; try { b=await request.json(); } catch { return response({ error:"Invalid JSON." },400,headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const b = parsed.value;
     const label=String(b.label||"").trim().slice(0,80), reason=String(b.reason||"").trim().slice(0,60), details=String(b.details||"").trim().slice(0,1000);
     if (!label || !reason) return response({ error:"Label and reason are required." },400,headers);
     await env.DB.prepare("INSERT INTO abuse_reports(id,label,reason,details,created_at,status) VALUES(?,?,?,?,?,'pending')").bind(crypto.randomUUID(),label,reason,details,new Date().toISOString()).run();
@@ -237,7 +236,9 @@ async function handle(request, env) {
   if (request.method === "POST" && reportModeration) {
     const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
-    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const b = parsed.value;
     if (!["reviewed", "dismissed"].includes(b.status)) return response({ error: "Status must be reviewed or dismissed." }, 400, headers);
     const result = await env.DB.prepare("UPDATE abuse_reports SET status=? WHERE id=? AND status='pending'").bind(b.status, reportModeration[1]).run();
     if (!result.meta || result.meta.changes === 0) return response({ error: "Pending report not found." }, 404, headers);
@@ -248,7 +249,9 @@ async function handle(request, env) {
   if (request.method === "POST" && moderation) {
     const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
-    let b; try { b = await request.json(); } catch { return response({ error: "Invalid JSON." }, 400, headers); }
+    const parsed = await readJson(request);
+    if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
+    const b = parsed.value;
     const status = b.status;
     if (!["approved", "rejected"].includes(status)) return response({ error: "Status must be approved or rejected." }, 400, headers);
     const table = moderation[1] === "creators" ? "creators" : "posts";
