@@ -7,6 +7,8 @@ const worker = await readFile(new URL("../src/index.js", import.meta.url), "utf8
 const platform = await readFile(new URL("../../platform.html", import.meta.url), "utf8");
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
 const migration = await readFile(new URL("../migrations/0002_creator_key_ownership.sql", import.meta.url), "utf8");
+const http = await readFile(new URL("../src/http.js", import.meta.url), "utf8");
+const ai = await readFile(new URL("../src/ai.js", import.meta.url), "utf8");
 
 test("there is exactly one protected moderation queue route", () => {
   const matches = worker.match(/path === "\/api\/v1\/moderation\/queue"/g) || [];
@@ -57,4 +59,20 @@ test("static creator frontend JavaScript parses without syntax errors", () => {
   const end = platform.lastIndexOf("</script>");
   assert.ok(start >= 0 && end > start, "platform.html must contain its client script");
   assert.doesNotThrow(() => new Script(platform.slice(start + 8, end)));
+});
+
+
+test("all Worker JSON endpoints use bounded streaming body parsing", () => {
+  assert.doesNotMatch(worker, /request\.json\(\)/);
+  assert.match(worker, /readJson\(request\)/);
+  assert.match(http, /request\.body\.getReader\(\)/);
+  assert.match(http, /total > maxBytes/);
+  assert.match(ai, /readJson\(request, 20 \* 1024\)/);
+});
+
+test("per-IP rate limits use a single atomic D1 upsert", () => {
+  assert.match(http, /ON CONFLICT\(bucket\) DO UPDATE SET/);
+  assert.match(http, /RETURNING hits/);
+  assert.match(worker, /consumeRateLimit\(env\.DB/);
+  assert.match(ai, /consumeRateLimit\(env\.DB/);
 });
