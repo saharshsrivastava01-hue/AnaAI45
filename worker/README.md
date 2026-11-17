@@ -54,7 +54,7 @@ The identity registry's self-signed records prove key control, not real-world id
 
 ## Request and abuse safeguards
 
-- JSON request bodies are read incrementally and capped at 8 KiB for registry, creator, post, report and moderation endpoints. The optional AI chat endpoint has a 20 KiB transport cap and a separate 4,000-character prompt limit.
+- JSON request bodies are read incrementally and capped at 8 KiB for identity, creator, report and moderation endpoints; post submissions and optional AI chat are capped at 20 KiB to accommodate UTF-8 content. AI prompts also have a separate 4,000-character limit.
 - Invalid UTF-8, malformed JSON, non-object JSON and oversized bodies are rejected before route-specific database writes.
 - Per-IP rate-limit increments and 60-second window resets use one atomic D1 UPSERT with `RETURNING`, avoiding the read-then-write race in the earlier counter implementation.
 - Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP.
