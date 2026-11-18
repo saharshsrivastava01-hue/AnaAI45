@@ -109,3 +109,18 @@ The resulting `NEXUS_FILM.mp4` is a low-resolution prototype output, not a
 Hollywood production master. Rendering cost rises quickly with resolution,
 samples per pixel, reflection depth and frame count. The CI workflow includes
 a tiny end-to-end smoke test; check the Actions run for its actual result.
+
+
+## v0.5 triangle intersection unit
+
+Added `rtl/nexus3000_triangle_intersect.sv`, a compact Möller–Trumbore
+ray/triangle intersection reference using signed Q8.8 coordinates and outputs
+for distance and barycentric coordinates. The companion testbench checks a
+front-facing hit and a parallel-ray miss. GitHub Actions is configured to
+compile and run this test.
+
+This first implementation uses combinational arithmetic, including division;
+its timing, numerical range, edge cases, and FPGA resource use must be measured
+before increasing ray-lane count or treating it as a production accelerator.
+It does not yet integrate the AABB, BVH, triangle store, material system, or
+frame renderer into one hardware pipeline.
