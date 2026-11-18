@@ -61,6 +61,11 @@ jobs:
         run: |
           iverilog -g2012 -s tb_nexus3000_ray_aabb -o /tmp/nexus_ray_tb rtl/nexus3000_ray_aabb.sv tb/tb_nexus3000_ray_aabb.sv
           vvp /tmp/nexus_ray_tb
+      - name: Simulate NEXUS BVH traversal
+        working-directory: nexus-virtual-cinema-chip/hardware
+        run: |
+          iverilog -g2012 -s tb_nexus3000_bvh_traversal -o /tmp/nexus_bvh_tb rtl/nexus3000_bvh_traversal.sv tb/tb_nexus3000_bvh_traversal.sv
+          vvp /tmp/nexus_bvh_tb
 
   full-dummy-film:
     runs-on: ubuntu-latest
