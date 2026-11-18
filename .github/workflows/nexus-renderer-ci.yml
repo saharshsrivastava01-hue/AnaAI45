@@ -32,8 +32,9 @@ jobs:
         working-directory: nexus-virtual-cinema-chip
         run: python -m unittest discover -s tests -v
 
-  dummy-film-preview:
+  full-dummy-film:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,22 +42,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Render NEXUS 2090 dummy film frames
-        working-directory: nexus-virtual-cinema-chip
+      - name: Install FFmpeg on the temporary runner
         run: |
-          python nexus_ultra_renderer.py --out dummy-film-output --width 96 --height 54 --frames 8 --fps 12 --spp 1 --depth 1
-      - name: Encode MP4 preview when FFmpeg is available
-        working-directory: nexus-virtual-cinema-chip
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1; then
-            ffmpeg -y -framerate 12 -i dummy-film-output/frame_%05d.ppm -c:v libx264 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
-          else
-            echo "FFmpeg unavailable; retaining rendered PPM frames as the preview artifact."
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
           fi
-      - name: Upload dummy-film preview artifact
+          ffmpeg -version | head -n 1
+      - name: Render complete 10-second NEXUS 2090 dummy film
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          python nexus_ultra_renderer.py --out dummy-film-output --width 96 --height 54 --frames 120 --fps 12 --spp 1 --depth 1
+      - name: Encode MP4 film
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          ffmpeg -y -framerate 12 -i dummy-film-output/frame_%05d.ppm -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
+      - name: Upload rendered film and source frames
         uses: actions/upload-artifact@v4
         with:
-          name: nexus-2090-dummy-film-preview
+          name: nexus-2090-full-dummy-film
           path: nexus-virtual-cinema-chip/dummy-film-output/
           if-no-files-found: error
           retention-days: 7
