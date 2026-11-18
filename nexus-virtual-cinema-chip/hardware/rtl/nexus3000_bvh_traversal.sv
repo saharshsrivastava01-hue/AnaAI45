@@ -31,7 +31,7 @@ module nexus3000_bvh_traversal #(
   output logic done,
   output logic stack_overflow
 );
-  typedef enum logic [1:0] {IDLE, REQUEST_NODE, WAIT_NODE, EMIT_LEAF, FINISHED} state_t;
+  typedef enum logic [2:0] {IDLE, REQUEST_NODE, WAIT_NODE, EMIT_LEAF, FINISHED} state_t;
   state_t state;
   logic [NODE_W-1:0] stack [0:STACK_DEPTH-1];
   logic [PTR_W:0] stack_count;
@@ -80,7 +80,7 @@ module nexus3000_bvh_traversal #(
             end else if (node_is_leaf) begin
               pending_leaf <= current_node;
               state <= EMIT_LEAF;
-            end else if (stack_count + 1 > STACK_DEPTH) begin
+            end else if (stack_count >= STACK_DEPTH) begin
               stack_overflow <= 1'b1;
               state <= FINISHED;
             end else begin
