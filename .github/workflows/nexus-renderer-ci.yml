@@ -6,12 +6,42 @@ on:
   pull_request:
     branches: [nexus-virtual-cinema-chip]
   workflow_dispatch:
+    inputs:
+      film:
+        description: "Film sequence to render"
+        required: true
+        type: choice
+        options:
+          - assassin_stealth
+          - procedural_demo
+        default: assassin_stealth
+      frames:
+        description: "Number of frames (24-360)"
+        required: true
+        type: string
+        default: "120"
+      fps:
+        description: "Frames per second"
+        required: true
+        type: string
+        default: "12"
+      width:
+        description: "Output width (32-640)"
+        required: true
+        type: string
+        default: "180"
+      height:
+        description: "Output height (32-640)"
+        required: true
+        type: string
+        default: "320"
 
 permissions:
   contents: read
 
 jobs:
   software-fabric:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,6 +66,7 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   hardware-rtl:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,10 +103,11 @@ jobs:
       - name: Simulate NEXUS triangle intersection
         working-directory: nexus-virtual-cinema-chip/hardware
         run: |
-          iverilog -g2012 -s tb_nexus3000_triangle_intersect -o /tmp/nexus_tri_tb rtl/nexus3000_triangle_intersect.sv tb/tb_nexus3000_triangle_intersect.sv
+          iverilog -g2012 -s tb_nexus3000_triangle_intersect -o /tmp/nexus_tri_tb rtl/nexus3000_ray_aabb.sv rtl/nexus3000_bvh_traversal.sv rtl/nexus3000_triangle_intersect.sv tb/tb_nexus3000_triangle_intersect.sv
           vvp /tmp/nexus_tri_tb
 
-  full-dummy-film:
+  render-assassin-film:
+    if: github.event_name == 'workflow_dispatch' && inputs.film == 'assassin_stealth'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -85,19 +117,61 @@ jobs:
           python-version: "3.12"
       - name: Install FFmpeg
         run: |
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          ffmpeg -version | head -n 1
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Validate render settings
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          frames=int(os.environ["FRAMES"]); fps=int(os.environ["FPS"])
+          width=int(os.environ["WIDTH"]); height=int(os.environ["HEIGHT"])
+          assert 24 <= frames <= 360, "frames must be 24..360"
+          assert 1 <= fps <= 60, "fps must be 1..60"
+          assert 32 <= width <= 640 and 32 <= height <= 640, "dimensions must be 32..640"
+          PY
+        env:
+          FRAMES: ${{ inputs.frames }}
+          FPS: ${{ inputs.fps }}
+          WIDTH: ${{ inputs.width }}
+          HEIGHT: ${{ inputs.height }}
+      - name: Render original NEXUS stealth film frames
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          python nexus_assassin_style_4d_movie.py --out NEXUS_ASSASSIN_FILM --frames "${{ inputs.frames }}" --fps "${{ inputs.fps }}" --width "${{ inputs.width }}" --height "${{ inputs.height }}"
+      - name: Verify MP4
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          test -s NEXUS_ASSASSIN_FILM/NEXUS_STEALTH_4D_SHORT.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 NEXUS_ASSASSIN_FILM/NEXUS_STEALTH_4D_SHORT.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexus-assassin-stealth-mp4
+          path: |
+            nexus-virtual-cinema-chip/NEXUS_ASSASSIN_FILM/NEXUS_STEALTH_4D_SHORT.mp4
+            nexus-virtual-cinema-chip/NEXUS_ASSASSIN_FILM/manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+  full-dummy-film:
+    if: github.event_name == 'workflow_dispatch' && inputs.film == 'procedural_demo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Render procedural NEXUS source frames
         working-directory: nexus-virtual-cinema-chip
         run: |
-          python nexus_ultra_renderer.py --out dummy-film-output --width 96 --height 54 --frames 120 --fps 12 --spp 1 --depth 1
+          python nexus_ultra_renderer.py --out dummy-film-output --width "${{ inputs.width }}" --height "${{ inputs.height }}" --frames "${{ inputs.frames }}" --fps "${{ inputs.fps }}" --spp 1 --depth 1
       - name: Encode MP4
         working-directory: nexus-virtual-cinema-chip
         run: |
-          ffmpeg -y -framerate 12 -i dummy-film-output/frame_%05d.ppm -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
+          ffmpeg -y -framerate "${{ inputs.fps }}" -i dummy-film-output/frame_%05d.ppm -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
       - uses: actions/upload-artifact@v4
         with:
