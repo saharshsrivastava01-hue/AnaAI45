@@ -58,3 +58,28 @@ commit them to this repository.
 3. Connect Blender for real 3D scene generation.
 4. Add a selectable real video-render provider (disabled by default).
 5. Build a 4D playback adapter for compatible venue hardware.
+
+
+## NEXUS-3000 virtual cinema / rendering prototype
+
+The repository also contains an experimental CPU ray-tracing renderer and a
+film pipeline that can render image frames, encode an MP4 with FFmpeg, and apply
+a cinematic finishing pass. Start with the architecture and pipeline guide:
+
+- [Hollywood pipeline architecture v0.5](NEXUS_HOLLYWOOD_PIPELINE_ARCHITECTURE.md)
+- [CPU renderer](nexus_ultra_renderer.py)
+- [Film pipeline runner](nexus_film_pipeline.py)
+- [Cinematic finishing and procedural audio](nexus_cinematic_vfx_audio.py)
+- [Hardware RTL and testbenches](hardware/README.md)
+
+Example small local render (requires Python and FFmpeg/ffprobe):
+
+```powershell
+python nexus_film_pipeline.py --out NEXUS_FILM_OUTPUT --width 160 --height 90 --frames 24 --fps 12 --spp 1 --depth 1
+```
+
+This produces a prototype MP4, not a production-quality Hollywood master.
+The renderer is CPU-based and intentionally capped; rendering time depends on
+scene complexity and the machine. GitHub Actions is configured for a short
+smoke render, but check the Actions run and artifact before treating it as
+successfully rendered. Logical accelerator lanes are not physical compute.
