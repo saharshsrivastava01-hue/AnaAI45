@@ -69,6 +69,11 @@ jobs:
         run: |
           iverilog -g2012 -s tb_nexus3000_bvh_traversal -o /tmp/nexus_bvh_tb rtl/nexus3000_bvh_traversal.sv tb/tb_nexus3000_bvh_traversal.sv
           vvp /tmp/nexus_bvh_tb
+      - name: Simulate NEXUS triangle intersection
+        working-directory: nexus-virtual-cinema-chip/hardware
+        run: |
+          iverilog -g2012 -s tb_nexus3000_triangle_intersect -o /tmp/nexus_tri_tb rtl/nexus3000_triangle_intersect.sv tb/tb_nexus3000_triangle_intersect.sv
+          vvp /tmp/nexus_tri_tb
 
   full-dummy-film:
     runs-on: ubuntu-latest
