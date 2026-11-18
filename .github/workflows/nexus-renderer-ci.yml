@@ -31,3 +31,32 @@ jobs:
       - name: Run regression tests
         working-directory: nexus-virtual-cinema-chip
         run: python -m unittest discover -s tests -v
+
+  dummy-film-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Render NEXUS 2090 dummy film frames
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          python nexus_ultra_renderer.py --out dummy-film-output --width 96 --height 54 --frames 8 --fps 12 --spp 1 --depth 1
+      - name: Encode MP4 preview when FFmpeg is available
+        working-directory: nexus-virtual-cinema-chip
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            ffmpeg -y -framerate 12 -i dummy-film-output/frame_%05d.ppm -c:v libx264 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
+          else
+            echo "FFmpeg unavailable; retaining rendered PPM frames as the preview artifact."
+          fi
+      - name: Upload dummy-film preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-2090-dummy-film-preview
+          path: nexus-virtual-cinema-chip/dummy-film-output/
+          if-no-files-found: error
+          retention-days: 7
