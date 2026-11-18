@@ -86,3 +86,26 @@ The memory and AABB intersection logic remain external interfaces; this module
 is the traversal controller, not a complete BVH/ray-tracing pipeline.
 Testbench: `tb/tb_nexus3000_bvh_traversal.sv`. GitHub Actions is configured
 to compile and run this test on workflow execution.
+
+
+## v0.5 BVH correctness fix and film pipeline
+
+The BVH controller state enum now uses three bits for its five states, and its
+stack-capacity check compares the current occupancy directly with the configured
+depth. This corrects an RTL encoding issue found during source review. Simulation
+is still required to establish behavior.
+
+The repository root now includes `nexus_film_pipeline.py`, which connects the
+CPU reference renderer to FFmpeg MP4 encoding and the cinematic finishing
+module (colour grade, glow/bloom-style processing, and an original procedural
+stereo score). Example from the repository's `nexus-virtual-cinema-chip`
+directory:
+
+```sh
+python nexus_film_pipeline.py --out NEXUS_FILM_OUTPUT --width 160 --height 90 --frames 24 --fps 12 --spp 1 --depth 1
+```
+
+The resulting `NEXUS_FILM.mp4` is a low-resolution prototype output, not a
+Hollywood production master. Rendering cost rises quickly with resolution,
+samples per pixel, reflection depth and frame count. The CI workflow includes
+a tiny end-to-end smoke test; check the Actions run for its actual result.
