@@ -69,7 +69,7 @@ def run_local_render(args: argparse.Namespace) -> dict:
         "status": "starting_local_render",
     }
     manifest_path = out / "nexus_omega_execution.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     processor = NexusOmegaProcessor()
     boot_report = processor.boot()
     manifest["processor_boot_report"] = boot_report
