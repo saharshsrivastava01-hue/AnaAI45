@@ -7,8 +7,8 @@ module tb_nexus3000_triangle_intersect;
   nexus3000_triangle_intersect dut(.*);
   initial begin
     // Ray through the centre of a unit right triangle at z=1.
-    ro_x=16'sd64; ro_y=16'sd64; ro_z=0;
-    rd_x=0; rd_y=0; rd_z=16'sd256;
+    ro_x=16'sd64; ro_y=16'sd64; ro_z=16'sd512;
+    rd_x=0; rd_y=0; rd_z=-16'sd256;
     v0_x=0; v0_y=0; v0_z=16'sd256;
     v1_x=16'sd256; v1_y=0; v1_z=16'sd256;
     v2_x=0; v2_y=16'sd256; v2_z=16'sd256;
