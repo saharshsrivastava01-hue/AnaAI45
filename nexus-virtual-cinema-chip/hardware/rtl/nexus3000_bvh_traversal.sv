@@ -37,8 +37,7 @@ module nexus3000_bvh_traversal #(
   logic [PTR_W:0] stack_count;
   logic [NODE_W-1:0] current_node;
   logic [NODE_W-1:0] pending_leaf;
-  logic push_children;
-
+  
   assign start_ready = (state == IDLE) || (state == FINISHED);
   assign node_req_valid = (state == REQUEST_NODE);
   assign node_req_index = current_node;
@@ -81,14 +80,13 @@ module nexus3000_bvh_traversal #(
             end else if (node_is_leaf) begin
               pending_leaf <= current_node;
               state <= EMIT_LEAF;
-            end else if (stack_count + 2 > STACK_DEPTH) begin
+            end else if (stack_count + 1 > STACK_DEPTH) begin
               stack_overflow <= 1'b1;
               state <= FINISHED;
             end else begin
-              // Push right, visit left first (depth-first order).
+              // Push only the deferred right child; visit left immediately.
               stack[stack_count] <= right_child;
-              stack[stack_count + 1'b1] <= left_child;
-              stack_count <= stack_count + 2;
+              stack_count <= stack_count + 1'b1;
               current_node <= left_child;
               state <= REQUEST_NODE;
             end
