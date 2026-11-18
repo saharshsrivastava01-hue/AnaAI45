@@ -25,7 +25,7 @@ jobs:
       - name: Compile software fabric and media modules
         working-directory: nexus-virtual-cinema-chip
         run: |
-          python -m py_compile nexus3000_virtual_chip.py nexus3000_film_fabric.py nexus_cinematic_vfx_audio.py nexus_ultra_renderer.py nexus_film_pipeline.py nexus_scene_graph.py nexus_vfx_studio.py nexus_immersive_media.py
+          python -m py_compile nexus3000_virtual_chip.py nexus_horizon_runtime.py nexus3000_film_fabric.py nexus_cinematic_vfx_audio.py nexus_ultra_renderer.py nexus_film_pipeline.py nexus_scene_graph.py nexus_vfx_studio.py nexus_immersive_media.py
           python nexus3000_virtual_chip.py --plan
           python nexus3000_virtual_chip.py --topology
       - name: Smoke-test complete film-to-MP4 pipeline
