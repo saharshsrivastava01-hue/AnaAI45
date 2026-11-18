@@ -9,14 +9,21 @@ function response(data, status = 200, headers = {}) {
 }
 function cors(request, env) {
   const origin = request.headers.get("Origin") || "";
-  const allowed = env.ALLOWED_ORIGIN || "";
-  const permitted = origin === allowed || origin === "http://localhost:8788" || origin === "http://127.0.0.1:8788";
-  return {
-    "access-control-allow-origin": permitted ? origin : allowed,
+  const configured = [
+    env.ALLOWED_ORIGIN || "",
+    ...(env.ALLOWED_DEV_ORIGINS || "").split(",")
+  ].map(value => value.trim()).filter(Boolean);
+  const headers = {
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type,authorization",
     "vary": "Origin"
   };
+  // Never echo an untrusted origin or silently fall back to the production origin.
+  // Local development origins must be explicitly configured and are not enabled by default.
+  if (origin && configured.includes(origin)) {
+    headers["access-control-allow-origin"] = origin;
+  }
+  return headers;
 }
 function b64ToBytes(value) {
   const raw = atob(value);
