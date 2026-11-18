@@ -72,3 +72,17 @@ This block is not a complete ray tracer: it does not traverse a BVH, shade
 triangles, sample materials, trace reflections, or render pixels. It uses
 fixed-point arithmetic and requires numerical-range validation and synthesis
 before hardware use.
+
+
+## v0.4 BVH traversal controller
+
+Added `rtl/nexus3000_bvh_traversal.sv`, an iterative depth-first traversal
+controller with a bounded on-chip stack. It requests node metadata from an
+external BVH store, skips missed nodes, visits the left child first, defers the
+right child on the stack, and emits intersected leaf indices. Stack overflow
+is reported explicitly.
+
+The memory and AABB intersection logic remain external interfaces; this module
+is the traversal controller, not a complete BVH/ray-tracing pipeline.
+Testbench: `tb/tb_nexus3000_bvh_traversal.sv`. GitHub Actions is configured
+to compile and run this test on workflow execution.
