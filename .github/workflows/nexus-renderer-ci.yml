@@ -51,6 +51,11 @@ jobs:
           iverilog -g2012 -tnull rtl/nexus3000_scratchpad.sv
           iverilog -g2012 -tnull rtl/nexus3000_tensor_dot.sv
           iverilog -g2012 -tnull rtl/nexus3000_command_unit.sv
+      - name: Simulate integrated NEXUS chip top
+        working-directory: nexus-virtual-cinema-chip/hardware
+        run: |
+          iverilog -g2012 -s tb_nexus3000_chip_top -o /tmp/nexus_top_tb rtl/nexus3000_compute_tile.sv rtl/nexus3000_command_unit.sv rtl/nexus3000_chip_top.sv tb/tb_nexus3000_chip_top.sv
+          vvp /tmp/nexus_top_tb
 
   full-dummy-film:
     runs-on: ubuntu-latest
