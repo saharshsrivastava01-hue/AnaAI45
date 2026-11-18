@@ -18,6 +18,7 @@ from pathlib import Path
 
 from nexus_omega_futuristic_chip import Job, plan_jobs, topology
 from nexus_horizon_runtime import inventory
+from nexus_omega_processor import NexusOmegaProcessor
 
 ROOT = Path(__file__).resolve().parent
 PIPELINE = ROOT / "nexus_film_pipeline.py"
@@ -68,10 +69,19 @@ def run_local_render(args: argparse.Namespace) -> dict:
         "status": "starting_local_render",
     }
     manifest_path = out / "nexus_omega_execution.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
+    processor = NexusOmegaProcessor()
+    boot_report = processor.boot()
+    manifest["processor_boot_report"] = boot_report
     started = time.perf_counter()
-    subprocess.run(command, check=True)
+    try:
+        instruction = processor.dispatch("EXEC", command)
+        instruction_result = processor.wait(instruction)
+    finally:
+        processor.shutdown()
     elapsed = time.perf_counter() - started
+    manifest["processor_execution"] = processor.snapshot()
+    manifest["retired_instruction"] = instruction_result
     manifest["status"] = "completed"
     manifest["elapsed_seconds"] = round(elapsed, 3)
     manifest["output_video"] = str(out / "NEXUS_FILM.mp4")
@@ -109,6 +119,7 @@ def main() -> None:
         "elapsed_seconds": result.get("elapsed_seconds"),
         "manifest": str((args.out.resolve() / "nexus_omega_execution.json")),
         "backend": result["execution_backend"],
+        "processor": result["processor_execution"],
     }, indent=2))
 
 
