@@ -56,3 +56,19 @@ committed workflow definition is not evidence of a passing run; check the
 Actions page for the actual result. The design still requires FPGA synthesis,
 timing closure, board validation and hardware measurements before it can be
 called a working physical chip.
+
+
+## v0.3 ray-tracing foundation
+
+Added `rtl/nexus3000_ray_aabb.sv`: a fixed-point Q16.16 ray / axis-aligned
+bounding-box (AABB) slab-intersection unit. It clips the ray's near/far interval
+against the supplied bounds and returns a hit flag. This is a useful primitive
+for a future bounding-volume hierarchy (BVH) traversal engine.
+
+Simulation test: `tb/tb_nexus3000_ray_aabb.sv` checks one intersecting box and
+one miss. The GitHub Actions workflow compiles and runs this test when triggered.
+
+This block is not a complete ray tracer: it does not traverse a BVH, shade
+triangles, sample materials, trace reflections, or render pixels. It uses
+fixed-point arithmetic and requires numerical-range validation and synthesis
+before hardware use.
