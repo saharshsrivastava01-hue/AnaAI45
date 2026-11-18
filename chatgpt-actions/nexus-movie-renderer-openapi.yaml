@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info:
+  title: NEXUS Movie Render Controller
+  version: 1.0.0
+  description: >-
+    Lets a ChatGPT Action dispatch a NEXUS movie-render workflow and inspect
+    workflow runs and uploaded MP4 artifacts. Rendering uses GitHub-hosted
+    runners and the repository's procedural CPU renderer; virtual hardware
+    components are software models, not physical GPU/TPU silicon.
+servers:
+  - url: https://api.github.com
+security:
+  - GitHubBearer: []
+paths:
+  /repos/saharshsrivastava01-hue/AnaAI45/actions/workflows/nexus-renderer-ci.yml/dispatches:
+    post:
+      operationId: startNexusMovieRender
+      summary: Start a NEXUS movie render
+      description: Starts a render on the nexus-virtual-cinema-chip branch. Returns HTTP 204 when GitHub accepts the dispatch; it does not mean rendering is complete.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref, inputs]
+              properties:
+                ref:
+                  type: string
+                  enum: [nexus-virtual-cinema-chip]
+                inputs:
+                  type: object
+                  required: [film, frames, fps, width, height]
+                  properties:
+                    film:
+                      type: string
+                      enum: [assassin_stealth, procedural_demo]
+                      default: assassin_stealth
+                    frames:
+                      type: string
+                      default: "120"
+                    fps:
+                      type: string
+                      default: "12"
+                    width:
+                      type: string
+                      default: "180"
+                    height:
+                      type: string
+                      default: "320"
+      responses:
+        "204":
+          description: Workflow dispatch accepted. Poll workflow runs to confirm execution.
+        "401":
+          description: GitHub token missing or invalid.
+        "403":
+          description: Token lacks Actions write permission.
+  /repos/saharshsrivastava01-hue/AnaAI45/actions/workflows/nexus-renderer-ci.yml/runs:
+    get:
+      operationId: getNexusRenderRuns
+      summary: Check NEXUS render runs
+      parameters:
+        - in: query
+          name: branch
+          schema:
+            type: string
+            default: nexus-virtual-cinema-chip
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Recent workflow runs and statuses.
+  /repos/saharshsrivastava01-hue/AnaAI45/actions/runs/{run_id}/artifacts:
+    get:
+      operationId: getNexusRenderArtifacts
+      summary: Get downloadable render artifacts for a run
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Artifact IDs, names, expiration and archive download URLs.
+components:
+  securitySchemes:
+    GitHubBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: GitHub Personal Access Token
