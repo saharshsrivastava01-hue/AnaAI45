@@ -1,4 +1,4 @@
-name: NEXUS Renderer CI
+name: NEXUS Renderer and Hardware CI
 
 on:
   push:
@@ -11,55 +11,72 @@ permissions:
   contents: read
 
 jobs:
-  renderer-tests:
+  software-fabric:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Compile renderer modules
+      - name: Compile software fabric and media modules
         working-directory: nexus-virtual-cinema-chip
         run: |
-          python -m py_compile nexus_ultra_renderer.py nexus_scene_graph.py nexus_vfx_studio.py nexus_immersive_media.py
-      - name: Run regression tests
+          python -m py_compile nexus3000_virtual_chip.py nexus3000_film_fabric.py nexus_cinematic_vfx_audio.py nexus_ultra_renderer.py nexus_scene_graph.py nexus_vfx_studio.py nexus_immersive_media.py
+          python nexus3000_virtual_chip.py --plan
+          python nexus3000_virtual_chip.py --topology
+      - name: Run renderer regression tests
         working-directory: nexus-virtual-cinema-chip
         run: python -m unittest discover -s tests -v
+
+  hardware-rtl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+      - name: Simulate NEXUS compute tile
+        working-directory: nexus-virtual-cinema-chip/hardware
+        run: |
+          iverilog -g2012 -s tb_nexus3000_compute_tile -o /tmp/nexus_tb rtl/nexus3000_compute_tile.sv tb/tb_nexus3000_compute_tile.sv
+          vvp /tmp/nexus_tb
+      - name: Compile additional RTL modules
+        working-directory: nexus-virtual-cinema-chip/hardware
+        run: |
+          iverilog -g2012 -tnull rtl/nexus3000_scratchpad.sv
+          iverilog -g2012 -tnull rtl/nexus3000_tensor_dot.sv
+          iverilog -g2012 -tnull rtl/nexus3000_command_unit.sv
 
   full-dummy-film:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install FFmpeg on the temporary runner
+      - name: Install FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y ffmpeg
           fi
           ffmpeg -version | head -n 1
-      - name: Render complete 10-second NEXUS 2090 dummy film
+      - name: Render procedural NEXUS source frames
         working-directory: nexus-virtual-cinema-chip
         run: |
           python nexus_ultra_renderer.py --out dummy-film-output --width 96 --height 54 --frames 120 --fps 12 --spp 1 --depth 1
-      - name: Encode MP4 film
+      - name: Encode MP4
         working-directory: nexus-virtual-cinema-chip
         run: |
           ffmpeg -y -framerate 12 -i dummy-film-output/frame_%05d.ppm -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 dummy-film-output/NEXUS_2090_DUMMY_FILM.mp4
-      - name: Upload rendered film and source frames
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: nexus-2090-full-dummy-film
           path: nexus-virtual-cinema-chip/dummy-film-output/
