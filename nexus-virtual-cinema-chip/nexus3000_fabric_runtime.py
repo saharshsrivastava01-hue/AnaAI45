@@ -98,8 +98,8 @@ class VirtualSuperfabric:
                 if device.memory_bytes and task.estimated_memory_bytes > device.memory_bytes:
                     continue
                 active = self._loads[device.name]
-                if active >= min(device.capacity, self.max_workers):
-                    continue
+                # Capacity is a scheduling weight, not a hard physical-core count.
+                # ThreadPoolExecutor enforces the actual local concurrency limit.
                 # Prefer affinity, then lower normalized load, then lower estimated
                 # cost for this operation. This is a heuristic, not measured FLOPS.
                 affinity_penalty = 0 if task.affinity == device.name else 1
