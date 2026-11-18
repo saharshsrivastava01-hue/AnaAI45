@@ -71,9 +71,10 @@ def chip_status() -> dict[str, Any]:
       "modules": ["ChatGPT Gateway", "Story Compiler", "World Memory",
         "Scene Compiler", "3D Asset Planner", "Motion/VFX Planner",
         "Audio Planner", "4D Cue Engine", "Render Queue", "Movie Assembly"],
-      "virtual_gpu_units": 1_000_000,
+      "virtual_gpu_units": 1_000_000_000_000,
+      "virtual_gpu_units_kind": "virtual orchestration slots, not physical GPUs",
       "virtual_tpu_units": 1_000_000_000_000,
-      "capacity_notice": "Simulation/design targets only; not physical compute.",
+      "capacity_notice": "1 trillion virtual scheduling slots are an architectural target only. They do not represent installed GPUs, throughput, memory or measured compute.",
       "real_compute_connected": 0, "paid_providers_enabled": False,
       "counts": counts
     }
