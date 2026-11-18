@@ -130,7 +130,7 @@ def execute_local_task(row: dict) -> dict:
         frames, output = payload.get("frames_pattern"), payload.get("output_path")
         if not frames or not output:
             raise RuntimeError("frames_pattern and output_path are required.")
-        proc = subprocess.run([ffmpeg, "-y", "-framerate", str(int(payload.get("fps", 24)),
+        proc = subprocess.run([ffmpeg, "-y", "-framerate", str(int(payload.get("fps", 24))),
             "-i", str(frames), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output)],
             capture_output=True, text=True, timeout=3600, check=False)
         if proc.returncode:
