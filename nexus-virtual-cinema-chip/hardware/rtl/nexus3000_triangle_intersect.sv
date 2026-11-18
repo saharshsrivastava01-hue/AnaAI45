@@ -14,6 +14,10 @@ module nexus3000_triangle_intersect (
   output logic signed [15:0] u_out,
   output logic signed [15:0] v_out
 );
+  function automatic logic signed [47:0] mul16x32(
+    input logic signed [15:0] a, input logic signed [31:0] b);
+    mul16x32 = a*b;
+  endfunction
   function automatic logic signed [31:0] cross_x(
     input logic signed [15:0] ay, az, by, bz);
     cross_x = ay*bz - az*by;
@@ -41,15 +45,15 @@ module nexus3000_triangle_intersect (
     px = cross_x(rd_y,rd_z,e2_y,e2_z);
     py = cross_y(rd_x,rd_z,e2_x,e2_z);
     pz = cross_z(rd_x,rd_y,e2_x,e2_y);
-    p0 = e1x*px; p1 = e1y*py; p2 = e1z*pz;
+    p0 = mul16x32(e1x,px); p1 = mul16x32(e1y,py); p2 = mul16x32(e1z,pz);
     det = p0+p1+p2;
 
-    u_num = tx*px + ty*py + tz*pz;
+    u_num = mul16x32(tx,px) + mul16x32(ty,py) + mul16x32(tz,pz);
     qx = cross_x(ty,tz,e1y,e1z);
     qy = cross_y(tx,tz,e1x,e1z);
     qz = cross_z(tx,ty,e1x,e1y);
-    v_num = rd_x*qx + rd_y*qy + rd_z*qz;
-    t_num = e2x*qx + e2y*qy + e2z*qz;
+    v_num = mul16x32(rd_x,qx) + mul16x32(rd_y,qy) + mul16x32(rd_z,qz);
+    t_num = mul16x32(e2x,qx) + mul16x32(e2y,qy) + mul16x32(e2z,qz);
 
     hit = 1'b0;
     t_out = '0; u_out = '0; v_out = '0;
