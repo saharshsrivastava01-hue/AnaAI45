@@ -30,7 +30,6 @@ module nexus3000_chip_top #(
   logic [15:0] issue_tag;
   logic tile_valid, tile_ready, tile_error;
   logic signed [ACC_W-1:0] tile_result;
-  logic [15:0] active_tag;
 
   nexus3000_command_unit u_command (
     .clk(clk), .rst_n(rst_n),
@@ -54,13 +53,10 @@ module nexus3000_chip_top #(
   // Capture the tag on the same cycle the command is accepted by the tile.
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-      active_tag <= '0;
       rsp_tag <= '0;
     end else begin
       if (issue_valid && issue_ready)
-        active_tag <= issue_tag;
-      if (tile_valid && rsp_ready)
-        rsp_tag <= active_tag;
+        rsp_tag <= issue_tag;
     end
   end
 
