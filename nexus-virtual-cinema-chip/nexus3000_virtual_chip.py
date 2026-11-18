@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""NEXUS-3000 Virtual SoC Fabric v0.3.
+"""NEXUS-3000 Virtual Supercomputer Fabric v1.0.
 
-Integrated software control-plane model for the NEXUS hardware roadmap.
-All capacities/lanes are logical scheduler budgets, not physical resources.
+Hierarchical, deterministic virtual accelerator scheduler. Large logical
+capacities are namespace/scheduling abstractions, never physical compute.
 """
 from __future__ import annotations
-import argparse, json
+import argparse, json, math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -13,22 +13,22 @@ from pathlib import Path
 class Engine:
     name: str
     domain: str
-    lanes: int
-    memory_gb: float
+    logical_lanes: int
+    virtual_memory_gb: float
     capabilities: tuple[str, ...]
 
 ENGINES = (
-    Engine("VTPU","AI and tensor planning",4096,64,("inference","planning","matrix_dot","upscaling")),
-    Engine("VGPU","graphics and raster",8192,128,("raster","materials","particles","geometry_shading")),
-    Engine("VRPU","ray and path tracing",4096,96,("raytrace","shadows","reflections","global_illumination")),
-    Engine("VFXU","effects and compositing",2048,64,("compositing","denoise","color","glow","keying")),
-    Engine("VGEU","geometry",2048,48,("mesh","procedural","transforms","subdivision")),
-    Engine("VAU","audio and spatial sound",512,16,("mixing","synthesis","spatial_audio","mastering")),
-    Engine("VMEDIA","encode and delivery",512,32,("encode","mux","subtitles","qc")),
-    Engine("VIO","asset and data movement",256,64,("ingest","cache","manifest","streaming")),
-    Engine("VDMA","virtual DMA scheduling",256,32,("copy","transfer","framebuffer")),
-    Engine("VNoC","virtual network-on-chip",128,16,("routing","arbitration","telemetry")),
-    Engine("VSEC","safety and isolation",64,8,("validation","limits","audit")),
+    Engine("VTPU","tensor and AI",1_000_000_000,1_048_576,("inference","planning","matrix_dot","upscaling","embedding","attention")),
+    Engine("VGPU","graphics and raster",1_000_000_000,1_048_576,("raster","materials","particles","geometry_shading","meshlet","texture")),
+    Engine("VRPU","ray and path tracing",250_000_000,524_288,("raytrace","shadows","reflections","global_illumination","denoise")),
+    Engine("VFXU","effects and compositing",100_000_000,262_144,("compositing","denoise","color","glow","keying","motion_blur")),
+    Engine("VGEU","geometry",100_000_000,131_072,("mesh","procedural","transforms","subdivision")),
+    Engine("VAU","audio and spatial sound",10_000_000,32_768,("mixing","synthesis","spatial_audio","mastering")),
+    Engine("VMEDIA","encode and delivery",10_000_000,65_536,("encode","mux","subtitles","qc")),
+    Engine("VIO","asset and data movement",10_000_000,131_072,("ingest","cache","manifest","streaming")),
+    Engine("VDMA","virtual DMA scheduling",10_000_000,65_536,("copy","transfer","framebuffer")),
+    Engine("VNoC","virtual network-on-chip",1_000_000,16_384,("routing","arbitration","telemetry","congestion_control")),
+    Engine("VSEC","safety and isolation",100_000,4_096,("validation","limits","audit","quota")),
 )
 TASKS = (
  ("creative_plan","VTPU","planning",[]),
@@ -48,25 +48,41 @@ TASKS = (
 )
 
 def topology():
+    engines=[]
+    for e in ENGINES:
+        engines.append({**asdict(e),
+          "virtual_clusters":math.ceil(e.logical_lanes/1_000_000),
+          "virtual_tiles":math.ceil(e.logical_lanes/256),
+          "physical_devices":0})
     return {
-      "chip":"NEXUS-3000","version":"0.3",
-      "execution_model":"integrated virtual SoC control plane",
+      "chip":"NEXUS-3000","version":"1.0",
+      "execution_model":"hierarchical virtual accelerator superfabric",
       "physical_hardware":False,
-      "fabric":{"name":"VNoC","topology":"hierarchical mesh","virtual_links":128,
-                "features":["capability-aware routing","priority arbitration","telemetry model"]},
-      "memory":{"name":"VMEM","virtual_capacity_gb":512,
-                "tiers":["L0 register-file model","L1 scratchpad model","L2 scene cache model","framebuffer model","asset archive"]},
-      "control":{"command_queue":"VQ","dma":"VDMA","safety":"VSEC",
-                 "max_parallel_jobs":8,"retry_limit":2},
+      "fabric":{"name":"VNoC","topology":"3-level hierarchical mesh",
+        "levels":["global fabric","regional pods","virtual tiles"],
+        "logical_route_domains":1_000_000,"features":["capability-aware routing",
+        "priority arbitration","congestion model","fault-domain isolation","telemetry"]},
+      "memory":{"name":"VMEM","virtual_capacity_gb":2_359_296,
+        "tiers":["L0 register-file namespace","L1 scratchpad namespace",
+        "L2 regional cache namespace","distributed framebuffer namespace",
+        "object/asset archive namespace"],
+        "note":"Virtual address-space accounting only; no RAM is allocated."},
+      "control":{"command_queue":"VQ","scheduler":"V-SCHED",
+        "dma":"VDMA","safety":"VSEC","max_local_workers":8,
+        "backpressure":"bounded queues","retry_limit":2},
+      "accelerator_pods":{"tensor_pods":4096,"graphics_pods":4096,
+        "ray_pods":1024,"vfx_pods":512,"audio_media_pods":256,
+        "pod_size":"logical grouping; not hardware"},
       "hardware_rtl_blocks":[
         "hardware/rtl/nexus3000_compute_tile.sv",
         "hardware/rtl/nexus3000_tensor_dot.sv",
         "hardware/rtl/nexus3000_scratchpad.sv",
         "hardware/rtl/nexus3000_command_unit.sv"],
-      "engines":[asdict(e) for e in ENGINES],
+      "engines":engines,
       "pipeline":[{"stage":s,"engine":e,"capability":c,"depends_on":d} for s,e,c,d in TASKS],
       "honesty":{"physical_accelerators":0,"measured_throughput":False,
-        "note":"Lane counts and memory capacities are virtual scheduling abstractions."}
+        "logical_lanes_are_hardware":False,
+        "note":"Billion-scale lane counts describe virtual namespaces and scheduling capacity, not billions of executing GPU/TPU cores."}
     }
 
 def build_plan():
@@ -77,10 +93,13 @@ def build_plan():
             raise ValueError(f"Unsupported capability {engine}:{cap}")
         result.append({"sequence":i,"stage":stage,"engine":engine,
           "capability":cap,"depends_on":depends,
-          "virtual_lane_budget":min(by_name[engine].lanes,256),
+          "logical_lane_namespace":by_name[engine].logical_lanes,
+          "local_execution_workers":min(8,by_name[engine].logical_lanes),
           "status":"planned_not_executed"})
-    return {"chip":"NEXUS-3000","version":"0.3","mode":"virtual_simulation",
-            "physical_accelerators":0,"stages":result}
+    plan={"chip":"NEXUS-3000","version":"1.0","mode":"virtual_simulation",
+          "physical_accelerators":0,"stages":result}
+    validate_plan(plan)
+    return plan
 
 def validate_plan(plan):
     seen=set()
@@ -88,6 +107,8 @@ def validate_plan(plan):
         if any(dep not in seen for dep in item["depends_on"]):
             raise ValueError("Pipeline dependency must refer to an earlier stage")
         seen.add(item["stage"])
+    if plan.get("physical_accelerators") != 0:
+        raise ValueError("Physical accelerator count must reflect verified hardware")
     return True
 
 def main():
@@ -98,7 +119,6 @@ def main():
     p.add_argument("--write")
     a=p.parse_args()
     result=topology() if a.topology else build_plan()
-    if a.plan: validate_plan(result)
     rendered=json.dumps(result,indent=2)
     if a.write:
         path=Path(a.write); path.parent.mkdir(parents=True,exist_ok=True)
