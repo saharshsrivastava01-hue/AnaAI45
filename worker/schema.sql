@@ -77,3 +77,17 @@ CREATE INDEX IF NOT EXISTS idx_moderation_events_created
   ON moderation_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_moderation_events_target
   ON moderation_events(target_type, target_id, created_at DESC);
+
+-- Prevent ordinary application SQL from rewriting or deleting moderation history.
+-- A database administrator can still alter/drop these triggers; this is not tamper-proof storage.
+CREATE TRIGGER IF NOT EXISTS moderation_events_no_update
+BEFORE UPDATE ON moderation_events
+BEGIN
+  SELECT RAISE(ABORT, 'moderation_events is append-only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS moderation_events_no_delete
+BEFORE DELETE ON moderation_events
+BEGIN
+  SELECT RAISE(ABORT, 'moderation_events is append-only');
+END;
