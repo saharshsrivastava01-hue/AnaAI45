@@ -31,13 +31,14 @@ Existing creator rows created before this change have no owner key. The migratio
 - `GET /api/v1/moderation/queue` — operator-only pending creator, post and report queue.
 - `POST /api/v1/moderation/reports/{id}` — set a pending report to `reviewed` or `dismissed`.
 - Each successful report, creator or post status transition is recorded in `moderation_events` in the same D1 batch as the status update. The private queue returns the 50 most recent events.
+- Database triggers reject ordinary SQL `UPDATE` and `DELETE` operations against audit rows. This protects against accidental/application-level rewriting; a database administrator can still drop the triggers or alter the database, so this is not tamper-proof or independently immutable storage.
 - The current audit actor label is `shared-admin-token`. It records that the shared operator credential was used; it does **not** identify an individual moderator. Individual operator accounts and MFA remain future work.
 - `POST /api/v1/moderation/creators/{id}` — approve or reject a pending profile. Approval requires verified owner-key fields.
 - `POST /api/v1/moderation/posts/{id}` — approve or reject a pending post.
 
 Every moderation endpoint requires `Authorization: Bearer <ADMIN_TOKEN>`. Configure the secret with `wrangler secret put ADMIN_TOKEN`; never put it in frontend source, repository files, URL query parameters or local storage. The operator console sends it in an Authorization header and keeps it only in the current page's password field. Use it only on a trusted device.
 
-This is still a prototype moderation system: it does not yet have operator identity management, MFA, durable moderation audit logs, appeals, automatic abuse detection or a hardened admin origin. Add those and obtain a security review before public production operation.
+This is still a prototype moderation system: it does not yet have individual operator identity management, MFA, externally tamper-evident audit storage, appeals, automatic abuse detection or a hardened admin origin. Add those and obtain a security review before public production operation.
 
 ## Other API routes
 
@@ -59,6 +60,7 @@ The identity registry's self-signed records prove key control, not real-world id
 - JSON request bodies are read incrementally and capped at 8 KiB for identity, creator, report and moderation endpoints; post submissions and optional AI chat are capped at 20 KiB to accommodate UTF-8 content. AI prompts also have a separate 4,000-character limit.
 - Invalid UTF-8, malformed JSON, non-object JSON and oversized bodies are rejected before route-specific database writes.
 - Per-IP rate-limit increments and 60-second window resets use one atomic D1 UPSERT with `RETURNING`, avoiding the read-then-write race in the earlier counter implementation.
+- CORS returns `Access-Control-Allow-Origin` only for an exact match against `ALLOWED_ORIGIN` or an explicitly configured comma-separated `ALLOWED_DEV_ORIGINS`. Localhost is not implicitly trusted in production; keep development origins out of production configuration.
 - Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP.
 - IP rate limiting is still a basic D1 counter, not a distributed abuse-control service. Unique IP buckets are not yet periodically pruned; monitor database growth and add a scheduled retention policy before high-volume operation.
 
@@ -76,9 +78,10 @@ For an **existing database** created from an earlier version of this project, ap
 ```sh
 wrangler d1 execute ultra-registry --remote --file=./migrations/0002_creator_key_ownership.sql
 wrangler d1 execute ultra-registry --remote --file=./migrations/0003_moderation_audit_log.sql
+wrangler d1 execute ultra-registry --remote --file=./migrations/0004_moderation_audit_immutability.sql
 ```
 
-Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migration 0003 creates the moderation event log and its indexes; it is safe to re-run because it uses `IF NOT EXISTS`.
+Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and ordinary-DML immutability triggers; they use `IF NOT EXISTS` and are safe to re-run.
 
 ## Worker configuration and deployment
 
@@ -101,4 +104,4 @@ From this directory:
 npm test
 ```
 
-The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection and report moderation authorization. It does not replace a live Cloudflare D1 integration test or external security review.
+The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization, CORS allowlist behavior and audit-trigger definitions. It does not replace a live Cloudflare D1 integration test or external security review.
