@@ -8,6 +8,7 @@ const platform = await readFile(new URL("../../platform.html", import.meta.url),
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
 const migration = await readFile(new URL("../migrations/0002_creator_key_ownership.sql", import.meta.url), "utf8");
 const auditMigration = await readFile(new URL("../migrations/0003_moderation_audit_log.sql", import.meta.url), "utf8");
+const auditImmutabilityMigration = await readFile(new URL("../migrations/0004_moderation_audit_immutability.sql", import.meta.url), "utf8");
 const http = await readFile(new URL("../src/http.js", import.meta.url), "utf8");
 const ai = await readFile(new URL("../src/ai.js", import.meta.url), "utf8");
 
@@ -87,4 +88,14 @@ test("moderation status changes have an append-only audit trail", () => {
   assert.match(worker, /FROM moderation_events ORDER BY created_at DESC LIMIT 50/);
   assert.match(platform, /Recent moderation activity/);
   assert.match(platform, /event\.actor_type/);
+});
+
+test("moderation audit rows reject ordinary updates and deletes", () => {
+  for (const sql of [schema, auditImmutabilityMigration]) {
+    assert.match(sql, /CREATE TRIGGER IF NOT EXISTS moderation_events_no_update/);
+    assert.match(sql, /BEFORE UPDATE ON moderation_events/);
+    assert.match(sql, /CREATE TRIGGER IF NOT EXISTS moderation_events_no_delete/);
+    assert.match(sql, /BEFORE DELETE ON moderation_events/);
+    assert.match(sql, /RAISE\(ABORT, 'moderation_events is append-only'\)/);
+  }
 });
