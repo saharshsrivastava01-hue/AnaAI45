@@ -32,3 +32,27 @@ Expected: `NEXUS compute tile tests PASS`.
 
 The GPU/TPU labels in the wider software scheduler are virtual scheduling domains,
 not physical accelerators. This RTL is the first small, real hardware-design artifact.
+
+
+## v0.2 integrated chip top
+
+The v0.2 prototype adds `rtl/nexus3000_chip_top.sv`, which connects the
+command sequencer to the four-lane INT16 compute tile. It accepts tagged
+commands, routes vector MAC and ReLU operations, and returns a tagged result
+with an error indication. The integration testbench is
+`tb/tb_nexus3000_chip_top.sv`.
+
+Run the integrated simulation with Icarus Verilog:
+
+```sh
+iverilog -g2012 -s tb_nexus3000_chip_top -o /tmp/nexus_top_tb \
+  rtl/nexus3000_compute_tile.sv rtl/nexus3000_command_unit.sv \
+  rtl/nexus3000_chip_top.sv tb/tb_nexus3000_chip_top.sv
+vvp /tmp/nexus_top_tb
+```
+
+The GitHub Actions workflow now includes this integration simulation. A
+committed workflow definition is not evidence of a passing run; check the
+Actions page for the actual result. The design still requires FPGA synthesis,
+timing closure, board validation and hardware measurements before it can be
+called a working physical chip.
