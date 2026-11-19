@@ -36,7 +36,7 @@ Existing creator rows created before this change have no owner key. The migratio
 - `POST /api/v1/moderation/creators/{id}` — approve or reject a pending profile. Approval requires verified owner-key fields.
 - `POST /api/v1/moderation/posts/{id}` — approve or reject a pending post.
 
-Every moderation endpoint requires `Authorization: Bearer <ADMIN_TOKEN>`. Configure the secret with `wrangler secret put ADMIN_TOKEN`; never put it in frontend source, repository files, URL query parameters or local storage. The operator console sends it in an Authorization header and keeps it only in the current page's password field. Use it only on a trusted device.
+Every moderation endpoint requires `Authorization: Bearer <ADMIN_TOKEN>`. The Worker fails closed unless `ADMIN_TOKEN` is a 32–128 character URL-safe secret; generate a 64-character hexadecimal value locally with `openssl rand -hex 32`, then enter it with `wrangler secret put ADMIN_TOKEN`. Never put the secret in frontend source, repository files, URL query parameters or local storage. Authentication attempts are limited to 60 per source IP per minute. The operator console sends the token only in an Authorization header and keeps it only in the current page's password field. This remains one shared bearer credential, not individual operator accounts or MFA; use it only on a trusted device.
 
 This is still a prototype moderation system: it does not yet have individual operator identity management, MFA, externally tamper-evident audit storage, appeals, automatic abuse detection or a hardened admin origin. Add those and obtain a security review before public production operation.
 
@@ -61,7 +61,7 @@ The identity registry's self-signed records prove key control, not real-world id
 - Invalid UTF-8, malformed JSON, non-object JSON and oversized bodies are rejected before route-specific database writes.
 - Per-IP rate-limit increments and 60-second window resets use one atomic D1 UPSERT with `RETURNING`, avoiding the read-then-write race in the earlier counter implementation.
 - CORS returns `Access-Control-Allow-Origin` only for an exact match against `ALLOWED_ORIGIN` or an explicitly configured comma-separated `ALLOWED_DEV_ORIGINS`. Localhost is not implicitly trusted in production; keep development origins out of production configuration.
-- Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP.
+- Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP and operator authentication 60/minute per IP.
 - IP rate limiting is still a basic D1 counter, not a distributed abuse-control service. Unique IP buckets are not yet periodically pruned; monitor database growth and add a scheduled retention policy before high-volume operation.
 
 ## D1 setup and migration
@@ -90,7 +90,7 @@ Apply migration 0002 only once; it adds creator public-key/fingerprint fields an
 3. Create a D1 database if one does not already exist. Set its actual ID in `wrangler.toml`; do not commit credentials.
 4. Apply either the new-database schema or the one-time existing-database migration above.
 5. Set `ALLOWED_ORIGIN` to the exact HTTPS frontend origin, without a trailing slash.
-6. Set the operator secret: `wrangler secret put ADMIN_TOKEN`.
+6. Generate a strong operator token locally with `openssl rand -hex 32`, then set it with `wrangler secret put ADMIN_TOKEN`. The Worker rejects tokens shorter than 32 characters or outside the URL-safe character set.
 7. For the optional AI endpoint, set `OPENAI_API_KEY` as a Worker secret and set `OPENAI_MODEL` to a model available to the API account. API billing may be required.
 8. Only after explicit operator approval, deploy with `wrangler deploy` and test `/health`.
 
