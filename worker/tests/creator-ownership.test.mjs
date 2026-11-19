@@ -5,6 +5,8 @@ import { webcrypto } from "node:crypto";
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
+const TEST_ADMIN_TOKEN = "a".repeat(64);
+
 class FakeD1 {
   constructor() {
     this.rates = new Map();
@@ -137,7 +139,7 @@ class FakeStatement {
 }
 
 const db = new FakeD1();
-const env = { DB:db, ALLOWED_ORIGIN:"https://ultra.test", ADMIN_TOKEN:"test-admin-token" };
+const env = { DB:db, ALLOWED_ORIGIN:"https://ultra.test", ADMIN_TOKEN:TEST_ADMIN_TOKEN };
 async function request(method, path, body, token, ip = "203.0.113.10") {
   const headers = { Origin:"https://ultra.test", "CF-Connecting-IP":ip };
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -196,7 +198,7 @@ test("a verified creator can be approved and resolve its local key after refresh
   const ownerData = await owner.json();
   assert.equal(owner.status, 200);
   assert.equal(ownerData.id, result.data.id);
-  const approval = await request("POST", "/api/v1/moderation/creators/" + result.data.id, { status:"approved" }, "test-admin-token");
+  const approval = await request("POST", "/api/v1/moderation/creators/" + result.data.id, { status:"approved" }, TEST_ADMIN_TOKEN);
   assert.equal(approval.status, 200);
   assert.equal(db.creators.get(result.data.id).status, "approved");
   const event = [...db.moderationEvents.values()].find(x => x.target_id === result.data.id);
@@ -206,7 +208,7 @@ test("a verified creator can be approved and resolve its local key after refresh
 
 test("post publishing requires a signature from the creator's enrolled key", async () => {
   const result = await enroll("postowner");
-  const approval = await request("POST", "/api/v1/moderation/creators/" + result.data.id, { status:"approved" }, "test-admin-token");
+  const approval = await request("POST", "/api/v1/moderation/creators/" + result.data.id, { status:"approved" }, TEST_ADMIN_TOKEN);
   assert.equal(approval.status, 200);
   const post = {
     creatorId:result.data.id, id:crypto.randomUUID(), title:"Signed post", body:"Only the owner key can submit this.",
@@ -224,7 +226,7 @@ test("post publishing requires a signature from the creator's enrolled key", asy
   assert.equal(db.posts.get(post.id).author_fingerprint, result.fingerprint);
   const replay = await request("POST", "/api/v1/posts", { ...post, signature });
   assert.equal(replay.status, 409);
-  const postApproval = await request("POST", "/api/v1/moderation/posts/" + post.id, { status:"approved" }, "test-admin-token");
+  const postApproval = await request("POST", "/api/v1/moderation/posts/" + post.id, { status:"approved" }, TEST_ADMIN_TOKEN);
   assert.equal(postApproval.status, 200);
   const event = [...db.moderationEvents.values()].find(x => x.target_id === post.id);
   assert.equal(event?.target_type, "post");
@@ -237,7 +239,7 @@ test("legacy creators without an enrolled owner key cannot publish or be approve
     id, handle:"legacycreator", display_name:"Legacy", status:"pending",
     owner_public_key:null, owner_fingerprint:null, ownership_verified_at:null
   });
-  const approval = await request("POST", "/api/v1/moderation/creators/" + id, { status:"approved" }, "test-admin-token");
+  const approval = await request("POST", "/api/v1/moderation/creators/" + id, { status:"approved" }, TEST_ADMIN_TOKEN);
   assert.equal(approval.status, 409);
   assert.equal(db.creators.get(id).status, "pending");
 });
@@ -251,7 +253,7 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   assert.equal(unauthorized.status, 401);
   assert.equal(db.reports.get(report.id).status, "pending");
   assert.equal(db.moderationEvents.size, eventsBefore);
-  const reviewed = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"reviewed" }, "test-admin-token");
+  const reviewed = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"reviewed" }, TEST_ADMIN_TOKEN);
   assert.equal(reviewed.status, 200);
   assert.equal(db.reports.get(report.id).status, "reviewed");
   assert.equal(db.moderationEvents.size, eventsBefore + 1);
@@ -259,10 +261,10 @@ test("abuse reports can only be resolved by an operator and only once", async ()
   assert.equal(event.target_type, "report");
   assert.equal(event.action, "reviewed");
   assert.equal(event.actor_type, "shared-admin-token");
-  const repeated = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" }, "test-admin-token");
+  const repeated = await request("POST", "/api/v1/moderation/reports/" + report.id, { status:"dismissed" }, TEST_ADMIN_TOKEN);
   assert.equal(repeated.status, 404);
   assert.equal(db.moderationEvents.size, eventsBefore + 1);
-  const queue = await request("GET", "/api/v1/moderation/queue", undefined, "test-admin-token");
+  const queue = await request("GET", "/api/v1/moderation/queue", undefined, TEST_ADMIN_TOKEN);
   const queueData = await queue.json();
   assert.equal(queue.status, 200);
   assert.equal(queueData.events.length, db.moderationEvents.size);
