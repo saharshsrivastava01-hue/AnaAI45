@@ -104,4 +104,4 @@ From this directory:
 npm test
 ```
 
-The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization, CORS allowlist behavior and audit-trigger definitions. It does not replace a live Cloudflare D1 integration test or external security review.
+The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization, strong operator-token checks, per-IP operator-auth throttling and CORS allowlist behavior. The CI workflow also runs `tests/schema_migrations.test.py` using Python's standard SQLite library to exercise the fresh schema, the ordered existing-database migrations, audit immutability triggers and rollback of an audit/status transaction when its status update fails. SQLite checks improve migration confidence but do not replace a live Cloudflare D1 integration test or external security review.
