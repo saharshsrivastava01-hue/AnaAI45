@@ -16,7 +16,7 @@ on:
           - procedural_demo
         default: assassin_stealth
       frames:
-        description: "Number of frames (24-360)"
+        description: "Number of frames (24-3600; 3600 = 5 minutes at 12 FPS)"
         required: true
         type: string
         default: "120"
@@ -109,7 +109,7 @@ jobs:
   render-assassin-film:
     if: github.event_name == 'workflow_dispatch' && inputs.film == 'assassin_stealth'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -126,7 +126,7 @@ jobs:
           import os
           frames=int(os.environ["FRAMES"]); fps=int(os.environ["FPS"])
           width=int(os.environ["WIDTH"]); height=int(os.environ["HEIGHT"])
-          assert 24 <= frames <= 360, "frames must be 24..360"
+          assert 24 <= frames <= 3600, "frames must be 24..3600"
           assert 1 <= fps <= 60, "fps must be 1..60"
           assert 32 <= width <= 640 and 32 <= height <= 640, "dimensions must be 32..640"
           PY
