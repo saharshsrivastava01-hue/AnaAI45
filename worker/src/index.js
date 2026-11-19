@@ -64,6 +64,30 @@ async function rateLimit(request, env, bucketName, max = 20) {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
   return consumeRateLimit(env.DB, bucketName + ":" + ip, max);
 }
+
+async function authorizeAdmin(request, env) {
+  const expected = env.ADMIN_TOKEN;
+  if (typeof expected !== "string" || !/^[A-Za-z0-9_-]{32,128}$/.test(expected)) {
+    return { ok:false, status:503, error:"Operator authentication is not configured with a 32–128 character URL-safe token." };
+  }
+  if (!await rateLimit(request, env, "admin-auth", 60)) {
+    return { ok:false, status:429, error:"Too many moderation authentication attempts. Try again in one minute." };
+  }
+  const match = /^Bearer ([A-Za-z0-9_-]{32,128})$/.exec(request.headers.get("Authorization") || "");
+  if (!match) return { ok:false, status:401, error:"Unauthorized moderation request." };
+
+  // Compare fixed-size SHA-256 digests instead of using a short-circuit string comparison.
+  const [candidateDigest, expectedDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(match[1])),
+    crypto.subtle.digest("SHA-256", enc.encode(expected))
+  ]);
+  let difference = 0;
+  const candidateBytes = new Uint8Array(candidateDigest);
+  const expectedBytes = new Uint8Array(expectedDigest);
+  for (let i = 0; i < candidateBytes.length; i++) difference |= candidateBytes[i] ^ expectedBytes[i];
+  if (difference !== 0) return { ok:false, status:401, error:"Unauthorized moderation request." };
+  return { ok:true };
+}
 async function verifyDetachedSignature(publicKeyBase64, signatureBase64, fingerprint, payload) {
   try {
     if (typeof publicKeyBase64 !== "string" || publicKeyBase64.length > 512 ||
@@ -229,8 +253,8 @@ async function handle(request, env) {
   }
   // Operator-only queue. Never expose ADMIN_TOKEN in a public client.
   if (request.method === "GET" && path === "/api/v1/moderation/queue") {
-    const token=(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({error:"Unauthorized moderation request."},401,headers);
+    const auth = await authorizeAdmin(request, env);
+    if (!auth.ok) return response({ error:auth.error }, auth.status, headers);
     const creators=await env.DB.prepare("SELECT id,handle,display_name,bio,website,created_at,ownership_verified_at,owner_fingerprint FROM creators WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
     const posts=await env.DB.prepare("SELECT p.id,p.title,p.body,p.category,p.created_at,c.handle FROM posts p JOIN creators c ON c.id=p.creator_id WHERE p.status='pending' ORDER BY p.created_at ASC LIMIT 100").all();
     const reports=await env.DB.prepare("SELECT id,label,reason,details,created_at FROM abuse_reports WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all();
@@ -242,8 +266,8 @@ async function handle(request, env) {
   // Operator-only report resolution.
   const reportModeration = path.match(new RegExp('^/api/v1/moderation/reports/([a-f0-9-]{36})$', 'i'));
   if (request.method === "POST" && reportModeration) {
-    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
+    const auth = await authorizeAdmin(request, env);
+    if (!auth.ok) return response({ error:auth.error }, auth.status, headers);
     const parsed = await readJson(request);
     if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
     const b = parsed.value;
@@ -263,8 +287,8 @@ async function handle(request, env) {
   // Operator-only moderation. Creator approval requires a verified owner key.
   const moderation = path.match(/^\/api\/v1\/moderation\/(creators|posts)\/([a-f0-9-]{36})$/i);
   if (request.method === "POST" && moderation) {
-    const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return response({ error: "Unauthorized moderation request." }, 401, headers);
+    const auth = await authorizeAdmin(request, env);
+    if (!auth.ok) return response({ error:auth.error }, auth.status, headers);
     const parsed = await readJson(request);
     if (!parsed.ok) return response({ error: parsed.error }, parsed.status, headers);
     const b = parsed.value;
