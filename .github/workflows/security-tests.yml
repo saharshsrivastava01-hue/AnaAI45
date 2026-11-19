@@ -16,3 +16,6 @@ jobs:
       - name: Run Worker security and behavior tests
         working-directory: worker
         run: npm test
+      - name: Validate fresh schema, upgrade migrations and moderation rollback with SQLite
+        working-directory: worker
+        run: python3 tests/schema_migrations.test.py
