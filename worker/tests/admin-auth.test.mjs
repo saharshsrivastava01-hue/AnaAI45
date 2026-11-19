@@ -42,7 +42,7 @@ test("a strong configured bearer token can access the private moderation queue",
 });
 
 test("missing, malformed and short operator secrets fail closed", async () => {
-  assert.equal((await call({ configured:undefined, authorization:"Bearer " + configuredToken })).status, 503);
+  assert.equal((await call({ configured:null, authorization:"Bearer " + configuredToken })).status, 503);
   assert.equal((await call({ configured:"short-secret", authorization:"Bearer short-secret" })).status, 503);
   assert.equal((await call({ authorization:configuredToken })).status, 401);
   assert.equal((await call({ authorization:"Basic " + configuredToken })).status, 401);
