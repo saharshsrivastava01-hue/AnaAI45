@@ -12,10 +12,13 @@ const auditImmutabilityMigration = await readFile(new URL("../migrations/0004_mo
 const http = await readFile(new URL("../src/http.js", import.meta.url), "utf8");
 const ai = await readFile(new URL("../src/ai.js", import.meta.url), "utf8");
 
-test("there is exactly one protected moderation queue route", () => {
+test("moderation routes use strong shared-token verification and bounded attempts", () => {
   const matches = worker.match(/path === "\/api\/v1\/moderation\/queue"/g) || [];
   assert.equal(matches.length, 1);
-  assert.match(worker, /!env\.ADMIN_TOKEN \|\| token !== env\.ADMIN_TOKEN/);
+  assert.match(worker, /async function authorizeAdmin\(request, env\)/);
+  assert.match(worker, /crypto\.subtle\.digest\("SHA-256"/);
+  assert.match(worker, /rateLimit\(request, env, "admin-auth", 60\)/);
+  assert.doesNotMatch(worker, /token !== env\.ADMIN_TOKEN/);
 });
 
 test("report resolution is operator protected and only permits pending reports", () => {
