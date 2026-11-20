@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   hits INTEGER NOT NULL,
   window_started INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window_started
+  ON rate_limits(window_started);
 
 CREATE TABLE IF NOT EXISTS abuse_reports (
   id TEXT PRIMARY KEY,
