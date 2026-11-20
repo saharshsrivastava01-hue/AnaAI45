@@ -1,5 +1,5 @@
 import { handleAI } from "./ai.js";
-import { readJson, consumeRateLimit } from "./http.js";
+import { readJson, consumeRateLimit, pruneExpiredRateLimits } from "./http.js";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const RESERVED = new Set(["admin","api","www","root","support","security","ultra","nexora","help","billing","login","signup","settings","mail","ftp","ns1","ns2"]);
 const enc = new TextEncoder();
@@ -320,5 +320,11 @@ export default {
   async fetch(request, env) {
     try { return await handle(request, env); }
     catch (error) { return response({ error: "Internal server error" }, 500, cors(request, env)); }
+  },
+  async scheduled(_controller, env, ctx) {
+    if (!env.DB) return;
+    const cleanup = pruneExpiredRateLimits(env.DB);
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(cleanup);
+    else await cleanup;
   }
 };
