@@ -22,6 +22,8 @@ def test_fresh_schema():
     db = sqlite3.connect(":memory:")
     db.executescript(SCHEMA)
     assert {"owner_public_key", "owner_fingerprint", "ownership_verified_at"} <= columns(db, "creators")
+    indexes = {row[1] for row in db.execute("PRAGMA index_list(rate_limits)")}
+    assert "idx_rate_limits_window_started" in indexes
     assert {"author_fingerprint", "author_signature"} <= columns(db, "posts")
     assert {"id", "target_type", "target_id", "action", "from_status", "to_status", "actor_type", "created_at"} <= columns(db, "moderation_events")
     db.execute(
@@ -77,7 +79,16 @@ def test_existing_database_migrations():
     db.executescript((MIGRATIONS / "0002_creator_key_ownership.sql").read_text(encoding="utf-8"))
     db.executescript((MIGRATIONS / "0003_moderation_audit_log.sql").read_text(encoding="utf-8"))
     migration_4 = (MIGRATIONS / "0004_moderation_audit_immutability.sql").read_text(encoding="utf-8")
+    migration_5 = (MIGRATIONS / "0005_rate_limit_retention_index.sql").read_text(encoding="utf-8")
     db.executescript(migration_4)
+    db.executescript(migration_5)
+    indexes = {row[1] for row in db.execute("PRAGMA index_list(rate_limits)")}
+    assert "idx_rate_limits_window_started" in indexes
+    plan = db.execute(
+        "EXPLAIN QUERY PLAN SELECT bucket FROM rate_limits WHERE window_started < ? ORDER BY window_started ASC LIMIT ?",
+        (0, 10),
+    ).fetchall()
+    assert any("idx_rate_limits_window_started" in str(row) for row in plan)
 
     assert {"owner_public_key", "owner_fingerprint", "ownership_verified_at"} <= columns(db, "creators")
     assert {"author_fingerprint", "author_signature"} <= columns(db, "posts")
@@ -88,6 +99,7 @@ def test_existing_database_migrations():
     # Migrations 0003/0004 are deliberately safe to retry after an interrupted setup.
     db.executescript((MIGRATIONS / "0003_moderation_audit_log.sql").read_text(encoding="utf-8"))
     db.executescript(migration_4)
+    db.executescript(migration_5)
 
     db.execute(
         "INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?)",
