@@ -65,3 +65,26 @@ export async function consumeRateLimit(db, bucket, max, now = Math.floor(Date.no
   `).bind(bucket, now).first();
   return !!row && row.hits <= max;
 }
+
+
+// Delete at most one bounded batch of rate-limit buckets older than the retention
+// window. A later scheduled invocation can continue if more rows remain.
+export async function pruneExpiredRateLimits(
+  db,
+  nowSeconds = Math.floor(Date.now() / 1000),
+  retentionSeconds = 24 * 60 * 60,
+  batchSize = 500
+) {
+  if (!db) return 0;
+  const cutoff = nowSeconds - retentionSeconds;
+  const result = await db.prepare(`
+    DELETE FROM rate_limits
+    WHERE bucket IN (
+      SELECT bucket FROM rate_limits
+      WHERE window_started < ?
+      ORDER BY window_started ASC
+      LIMIT ?
+    )
+  `).bind(cutoff, batchSize).run();
+  return Number(result?.meta?.changes || 0);
+}
