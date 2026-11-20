@@ -64,6 +64,11 @@ def test_existing_database_migrations():
             status TEXT NOT NULL DEFAULT 'pending',
             FOREIGN KEY (creator_id) REFERENCES creators(id)
         );
+        CREATE TABLE rate_limits (
+            bucket TEXT PRIMARY KEY,
+            hits INTEGER NOT NULL,
+            window_started INTEGER NOT NULL
+        );
         CREATE TABLE abuse_reports (
             id TEXT PRIMARY KEY,
             label TEXT NOT NULL,
