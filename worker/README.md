@@ -62,7 +62,7 @@ The identity registry's self-signed records prove key control, not real-world id
 - Per-IP rate-limit increments and 60-second window resets use one atomic D1 UPSERT with `RETURNING`, avoiding the read-then-write race in the earlier counter implementation.
 - CORS returns `Access-Control-Allow-Origin` only for an exact match against `ALLOWED_ORIGIN` or an explicitly configured comma-separated `ALLOWED_DEV_ORIGINS`. Localhost is not implicitly trusted in production; keep development origins out of production configuration.
 - Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP and operator authentication 60/minute per IP.
-- IP rate limiting is still a basic D1 counter, not a distributed abuse-control service. Unique IP buckets are not yet periodically pruned; monitor database growth and add a scheduled retention policy before high-volume operation.
+- IP rate limiting is still a basic D1 counter, not a distributed abuse-control service. A scheduled Worker handler now deletes at most 500 buckets older than 24 hours per invocation; it is intentionally not activated until an operator adds a Cron Trigger. This bounds each cleanup run and lets later runs continue if more rows remain.
 
 ## D1 setup and migration
 
@@ -79,9 +79,10 @@ For an **existing database** created from an earlier version of this project, ap
 wrangler d1 execute ultra-registry --remote --file=./migrations/0002_creator_key_ownership.sql
 wrangler d1 execute ultra-registry --remote --file=./migrations/0003_moderation_audit_log.sql
 wrangler d1 execute ultra-registry --remote --file=./migrations/0004_moderation_audit_immutability.sql
+wrangler d1 execute ultra-registry --remote --file=./migrations/0005_rate_limit_retention_index.sql
 ```
 
-Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and ordinary-DML immutability triggers; they use `IF NOT EXISTS` and are safe to re-run.
+Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and ordinary-DML immutability triggers. Migration 0005 adds the rate-limit retention index. These migrations use `IF NOT EXISTS` and are safe to re-run.
 
 ## Worker configuration and deployment
 
@@ -92,7 +93,8 @@ Apply migration 0002 only once; it adds creator public-key/fingerprint fields an
 5. Set `ALLOWED_ORIGIN` to the exact HTTPS frontend origin, without a trailing slash.
 6. Generate a strong operator token locally with `openssl rand -hex 32`, then set it with `wrangler secret put ADMIN_TOKEN`. The Worker rejects tokens shorter than 32 characters or outside the URL-safe character set.
 7. For the optional AI endpoint, set `OPENAI_API_KEY` as a Worker secret and set `OPENAI_MODEL` to a model available to the API account. API billing may be required.
-8. Only after explicit operator approval, deploy with `wrangler deploy` and test `/health`.
+8. To enable rate-limit cleanup, add a Cron Trigger after reviewing the retention policy, for example `[triggers]` with `crons = ["17 * * * *"]` in `wrangler.toml`. Do not enable it until migration 0005 has been applied to the target D1 database.
+9. Only after explicit operator approval, deploy with `wrangler deploy` and test `/health`.
 
 No production settings, D1 database or Worker were changed by this code update.
 
@@ -105,3 +107,8 @@ npm test
 ```
 
 The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization, strong operator-token checks, per-IP operator-auth throttling and CORS allowlist behavior. The CI workflow also runs `tests/schema_migrations.test.py` using Python's standard SQLite library to exercise the fresh schema, the ordered existing-database migrations, audit immutability triggers and rollback of an audit/status transaction when its status update fails. SQLite checks improve migration confidence but do not replace a live Cloudflare D1 integration test or external security review.
+
+
+### Rate-limit bucket retention
+
+The Worker scheduled handler prunes buckets whose `window_started` is more than 24 hours old. It removes no more than 500 rows per invocation, using the index added by migration 0005 (also present in the fresh schema). No Cron Trigger is enabled in the checked-in configuration. After staging verification and explicit approval, an operator may add a Cron Trigger such as `17 * * * *`; each run then removes one bounded batch. The retention period is deliberately longer than the 60-second rate-limit window so expired counters are not removed while they can still affect request decisions.
