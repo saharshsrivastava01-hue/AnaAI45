@@ -111,7 +111,7 @@ The suite includes Worker route behavior tests with a D1 test double, signature 
 
 ### Rate-limit bucket retention
 
-The Worker scheduled handler prunes buckets whose `window_started` is more than 24 hours old. It removes no more than 500 rows per invocation, using the index added by migration 0005 (also present in the fresh schema). No Cron Trigger is enabled in the checked-in configuration. After staging verification and explicit approval, an operator may add a Cron Trigger such as `17 * * * *`; each run then removes one bounded batch. The retention period is deliberately longer than the 60-second rate-limit window so expired counters are not removed while they can still affect request decisions.
+The Worker scheduled handler prunes buckets whose `window_started` is more than 24 hours old. It removes no more than 500 rows per invocation; the helper clamps caller-supplied batch sizes to the 1–500 range and bounds retention to 60 seconds–30 days. It uses the index added by migration 0005 (also present in the fresh schema). No Cron Trigger is enabled in the checked-in configuration. After staging verification and explicit approval, an operator may add a Cron Trigger such as `17 * * * *`; each run then removes one bounded batch. The retention period is deliberately longer than the 60-second rate-limit window so expired counters are not removed while they can still affect request decisions.
 
 
 ## Static creator frontend security
