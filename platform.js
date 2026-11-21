@@ -395,4 +395,4 @@ $("report").addEventListener("click", async () => {
 
 try { $("api").value = localStorage.getItem("ultra_creator_api") || ""; } catch {}
 refreshAccounts().catch(() => {});
-if (base()) connect();
+try { if (base()) connect(); } catch (e) { msg("connection", e.message, false); }
