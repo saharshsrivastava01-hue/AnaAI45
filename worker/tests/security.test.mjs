@@ -5,6 +5,7 @@ import { Script } from "node:vm";
 
 const worker = await readFile(new URL("../src/index.js", import.meta.url), "utf8");
 const platform = await readFile(new URL("../../platform.html", import.meta.url), "utf8");
+const platformScript = await readFile(new URL("../../platform.js", import.meta.url), "utf8");
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
 const migration = await readFile(new URL("../migrations/0002_creator_key_ownership.sql", import.meta.url), "utf8");
 const auditMigration = await readFile(new URL("../migrations/0003_moderation_audit_log.sql", import.meta.url), "utf8");
@@ -25,8 +26,8 @@ test("report resolution is operator protected and only permits pending reports",
   assert.match(worker, /moderation\/reports/);
   assert.match(worker, /!\["reviewed", "dismissed"\]\.includes\(b\.status\)/);
   assert.match(worker, /UPDATE abuse_reports SET status=\? WHERE id=\? AND status='pending'/);
-  assert.match(platform, /data-report-status="reviewed"/);
-  assert.match(platform, /data-report-status="dismissed"/);
+  assert.match(platformScript, /reportButton\("Mark reviewed"/);
+  assert.match(platformScript, /reportButton\("Dismiss"/);
 });
 
 test("creator enrollment stores a public P-256 key only after signature verification", () => {
@@ -36,8 +37,8 @@ test("creator enrollment stores a public P-256 key only after signature verifica
   assert.match(schema, /owner_public_key TEXT/);
   assert.match(schema, /owner_fingerprint TEXT/);
   assert.match(migration, /ALTER TABLE creators ADD COLUMN owner_public_key TEXT/);
-  assert.match(platform, /generateKey\(\{ name:"ECDSA", namedCurve:"P-256" \}, false/);
-  assert.match(platform, /indexedDB\.open\(KEY_DB, 1\)/);
+  assert.match(platformScript, /generateKey\(\{ name:"ECDSA", namedCurve:"P-256" \}, false/);
+  assert.match(platformScript, /indexedDB\.open\(KEY_DB, 1\)/);
 });
 
 test("post submissions are signed by the enrolled creator key, not a supplied handle", () => {
@@ -55,15 +56,13 @@ test("creator approval fails closed for legacy profiles without ownership proof"
 
 test("moderation UI contains report actions and keeps the token in the current form only", () => {
   assert.match(platform, /id="adminToken"/);
-  assert.match(platform, /authorization:"Bearer " \+ token/);
-  assert.doesNotMatch(platform, /localStorage\.setItem\([^\n]*adminToken/i);
+  assert.match(platformScript, /authorization:"Bearer " \+ token/);
+  assert.doesNotMatch(platformScript, /localStorage\.setItem\([^\n]*adminToken/i);
 });
 
 test("static creator frontend JavaScript parses without syntax errors", () => {
-  const start = platform.indexOf("<script>");
-  const end = platform.lastIndexOf("</script>");
-  assert.ok(start >= 0 && end > start, "platform.html must contain its client script");
-  assert.doesNotThrow(() => new Script(platform.slice(start + 8, end)));
+  assert.match(platform, /<script src="platform\.js" defer><\/script>/);
+  assert.doesNotThrow(() => new Script(platformScript));
 });
 
 
@@ -89,8 +88,8 @@ test("moderation status changes have an append-only audit trail", () => {
   assert.match(worker, /INSERT INTO moderation_events/);
   assert.match(worker, /env\.DB\.batch\(\[audit, update\]\)/);
   assert.match(worker, /FROM moderation_events ORDER BY created_at DESC LIMIT 50/);
-  assert.match(platform, /Recent moderation activity/);
-  assert.match(platform, /event\.actor_type/);
+  assert.match(platformScript, /Recent moderation activity/);
+  assert.match(platformScript, /event\.actor_type/);
 });
 
 test("moderation audit rows reject ordinary updates and deletes", () => {
