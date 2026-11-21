@@ -76,7 +76,14 @@ export async function pruneExpiredRateLimits(
   batchSize = 500
 ) {
   if (!db) return 0;
-  const cutoff = nowSeconds - retentionSeconds;
+  const safeNow = Number.isSafeInteger(nowSeconds) ? nowSeconds : Math.floor(Date.now() / 1000);
+  const safeRetention = Number.isSafeInteger(retentionSeconds) && retentionSeconds >= 60
+    ? Math.min(retentionSeconds, 30 * 24 * 60 * 60)
+    : 24 * 60 * 60;
+  const safeBatchSize = Number.isSafeInteger(batchSize)
+    ? Math.max(1, Math.min(batchSize, 500))
+    : 500;
+  const cutoff = safeNow - safeRetention;
   const result = await db.prepare(`
     DELETE FROM rate_limits
     WHERE bucket IN (
@@ -85,6 +92,6 @@ export async function pruneExpiredRateLimits(
       ORDER BY window_started ASC
       LIMIT ?
     )
-  `).bind(cutoff, batchSize).run();
+  `).bind(cutoff, safeBatchSize).run();
   return Number(result?.meta?.changes || 0);
 }
