@@ -112,3 +112,12 @@ The suite includes Worker route behavior tests with a D1 test double, signature 
 ### Rate-limit bucket retention
 
 The Worker scheduled handler prunes buckets whose `window_started` is more than 24 hours old. It removes no more than 500 rows per invocation, using the index added by migration 0005 (also present in the fresh schema). No Cron Trigger is enabled in the checked-in configuration. After staging verification and explicit approval, an operator may add a Cron Trigger such as `17 * * * *`; each run then removes one bounded batch. The retention period is deliberately longer than the 60-second rate-limit window so expired counters are not removed while they can still affect request decisions.
+
+
+## Static creator frontend security
+
+The creator page loads its application logic from the same-origin `platform.js` file and declares a Content Security Policy that permits scripts only from the page's own origin. Dynamic creator profiles, posts, reports and moderation queue entries are built with DOM nodes and `textContent`; server-provided strings are not parsed as HTML. The moderation queue status message is kept separate from the action list so refreshing status does not remove the moderation buttons.
+
+The Worker URL field accepts HTTPS URLs only and rejects embedded credentials, query strings and fragments. API requests omit browser credentials, refuse redirects and do not send a referrer. The page still needs a valid HTTPS Worker endpoint and an exact matching Worker CORS origin. This CSP applies to `platform.html`; it does not claim that every other static page in the repository has the same policy. Inline CSS remains allowed on this page for the existing design.
+
+CI checks the CSP declaration, external-script wiring, JavaScript syntax, absence of HTML parsing sinks in `platform.js`, and separation of moderation status from queue content. These static checks do not replace browser testing or a security review.
