@@ -39,6 +39,17 @@ test("rate-limit cleanup removes only expired buckets and respects its batch cap
   assert.equal(db.rows.has("recent"), true);
 });
 
+test("cleanup enforces a hard 500-row maximum even if a larger batch is requested", async () => {
+  const rows = Array.from({ length:501 }, (_, index) => ({
+    bucket:"expired-" + index,
+    window_started:index
+  }));
+  const db = new CleanupDB(rows);
+  const removed = await pruneExpiredRateLimits(db, 5000000, 86400, 5000);
+  assert.equal(removed, 500);
+  assert.equal(db.rows.size, 1);
+});
+
 test("scheduled handler submits one cleanup task through waitUntil", async () => {
   const now = Math.floor(Date.now() / 1000);
   const db = new CleanupDB([
