@@ -121,3 +121,16 @@ The creator page loads its application logic from the same-origin `platform.js` 
 The Worker URL field accepts HTTPS URLs only and rejects embedded credentials, query strings and fragments. API requests omit browser credentials, refuse redirects and do not send a referrer. The page still needs a valid HTTPS Worker endpoint and an exact matching Worker CORS origin. This CSP applies to `platform.html`; it does not claim that every other static page in the repository has the same policy. Inline CSS remains allowed on this page for the existing design.
 
 CI checks the CSP declaration, external-script wiring, JavaScript syntax, absence of HTML parsing sinks in `platform.js`, and separation of moderation status from queue content. These static checks do not replace browser testing or a security review.
+
+
+## Worker API response headers
+
+All Worker API responses, including JSON errors, AI-proxy responses and CORS preflight responses, receive a shared baseline:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: no-referrer`
+- A restrictive API-only Content Security Policy (`default-src 'none'; base-uri 'none'; frame-ancestors 'none'`)
+- A Permissions Policy disabling camera, microphone and geolocation
+- `Cache-Control: no-store`
+
+These headers protect the JSON API surface; they do not replace the separate Content Security Policy on `platform.html` or secure headers on other static pages. The Worker header tests cover health, not-found, AI configuration-error and untrusted preflight responses. Re-run `npm test` after changing the shared CORS/header builder.
