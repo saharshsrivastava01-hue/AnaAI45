@@ -14,6 +14,14 @@ function cors(request, env) {
     ...(env.ALLOWED_DEV_ORIGINS || "").split(",")
   ].map(value => value.trim()).filter(Boolean);
   const headers = {
+    // API responses are JSON-only. Apply browser security headers to normal,
+    // error, preflight and AI-proxy responses through this shared header builder.
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+    "content-security-policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    "cache-control": "no-store",
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type,authorization",
     "vary": "Origin"
