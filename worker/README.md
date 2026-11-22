@@ -134,3 +134,6 @@ All Worker API responses, including JSON errors, AI-proxy responses and CORS pre
 - `Cache-Control: no-store`
 
 These headers protect the JSON API surface; they do not replace the separate Content Security Policy on `platform.html` or secure headers on other static pages. The Worker header tests cover health, not-found, AI configuration-error and untrusted preflight responses. Re-run `npm test` after changing the shared CORS/header builder.
+
+
+The `ULTRA security tests` workflow can also be run manually from the repository's Actions tab using the `Run workflow` control. This rechecks the current selected branch without deploying the Worker or changing Cloudflare resources.
