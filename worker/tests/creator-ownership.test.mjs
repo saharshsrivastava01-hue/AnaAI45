@@ -164,10 +164,10 @@ async function sign(privateKey, payload) {
   const bytes = await crypto.subtle.sign({ name:"ECDSA", hash:"SHA-256" }, privateKey, new TextEncoder().encode(JSON.stringify(payload)));
   return Buffer.from(bytes).toString("base64");
 }
-async function enroll(handle = "securecreator") {
+async function enroll(handle = "securecreator", website = "") {
   const key = await makeKeyPair();
   const claim = {
-    handle, displayName:"Secure Creator", bio:"Test profile", website:"",
+    handle, displayName:"Secure Creator", bio:"Test profile", website,
     createdAt:new Date().toISOString(), version:1,
     publicKey:key.publicKey, fingerprint:key.fingerprint
   };
@@ -176,6 +176,22 @@ async function enroll(handle = "securecreator") {
   const data = await response.json();
   return { ...key, claim, signature, response, data };
 }
+
+test("creator enrollment rejects unsafe or credential-bearing website URLs", async () => {
+  const before = db.creators.size;
+  const invalid = [
+    ["badhttpurl", "http://example.com"],
+    ["badscripturl", "javascript:alert(1)"],
+    ["badcredentialurl", "https://user:password@example.com/profile"],
+    ["badcontrolurl", "https://example.com\n.evil"],
+    ["badlongurl", "https://" + "a".repeat(2050) + ".com"]
+  ];
+  for (const [handle, website] of invalid) {
+    const result = await enroll(handle, website);
+    assert.equal(result.response.status, 400, handle);
+  }
+  assert.equal(db.creators.size, before);
+});
 
 test("creator enrollment requires a fresh signature matching its public key", async () => {
   const wrongKey = await makeKeyPair();
