@@ -59,6 +59,7 @@ The identity registry's self-signed records prove key control, not real-world id
 
 - JSON request bodies are read incrementally and capped at 8 KiB for identity, creator, report and moderation endpoints; post submissions and optional AI chat are capped at 20 KiB to accommodate UTF-8 content. AI prompts also have a separate 4,000-character limit.
 - Invalid UTF-8, malformed JSON, non-object JSON and oversized bodies are rejected before route-specific database writes.
+- Creator website links and identity destinations must be absolute HTTPS URLs with a hostname, no embedded username/password, no control characters and a maximum length of 2,048 characters. The Worker validates but never fetches these user-supplied URLs.
 - Per-IP rate-limit increments and 60-second window resets use one atomic D1 UPSERT with `RETURNING`, avoiding the read-then-write race in the earlier counter implementation.
 - CORS returns `Access-Control-Allow-Origin` only for an exact match against `ALLOWED_ORIGIN` or an explicitly configured comma-separated `ALLOWED_DEV_ORIGINS`. Localhost is not implicitly trusted in production; keep development origins out of production configuration.
 - Current limits remain prototype defaults: identity claims 10/minute, creator enrollment 5/minute, post submissions 8/minute, abuse reports 5/minute and AI chat 8/minute per IP and operator authentication 60/minute per IP.
