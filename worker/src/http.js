@@ -1,3 +1,16 @@
+// Accept only absolute, bounded HTTPS URLs without embedded credentials or controls.
+// This is for user-visible links; the Worker never fetches these URLs itself.
+export function isSafeHttpsUrl(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048 ||
+      value !== value.trim() || /[\\u0000-\\u001f\\u007f]/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !!url.hostname && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 // Shared bounded HTTP parsing and atomic D1 rate limiting for the Worker.
 export async function readJson(request, maxBytes = 8192) {
   const declared = request.headers.get("content-length");
