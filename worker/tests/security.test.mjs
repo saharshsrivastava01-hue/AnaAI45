@@ -101,3 +101,9 @@ test("moderation audit rows reject ordinary updates and deletes", () => {
     assert.match(sql, /RAISE\(ABORT, 'moderation_events is append-only'\)/);
   }
 });
+
+test("identity destinations and creator websites use strict HTTPS URL validation", () => {
+  assert.match(http, /export function isSafeHttpsUrl\(value\)/);
+  assert.match(worker, /isSafeHttpsUrl\(record\.destination\)/);
+  assert.match(worker, /isSafeHttpsUrl\(website\)/);
+});
