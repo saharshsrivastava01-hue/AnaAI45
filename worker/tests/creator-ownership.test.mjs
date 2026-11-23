@@ -164,7 +164,7 @@ async function sign(privateKey, payload) {
   const bytes = await crypto.subtle.sign({ name:"ECDSA", hash:"SHA-256" }, privateKey, new TextEncoder().encode(JSON.stringify(payload)));
   return Buffer.from(bytes).toString("base64");
 }
-async function enroll(handle = "securecreator", website = "") {
+async function enroll(handle = "securecreator", website = "", ip = "203.0.113.10") {
   const key = await makeKeyPair();
   const claim = {
     handle, displayName:"Secure Creator", bio:"Test profile", website,
@@ -172,7 +172,7 @@ async function enroll(handle = "securecreator", website = "") {
     publicKey:key.publicKey, fingerprint:key.fingerprint
   };
   const signature = await sign(key.pair.privateKey, claim);
-  const response = await request("POST", "/api/v1/creators", { ...claim, signature });
+  const response = await request("POST", "/api/v1/creators", { ...claim, signature }, undefined, ip);
   const data = await response.json();
   return { ...key, claim, signature, response, data };
 }
@@ -186,8 +186,8 @@ test("creator enrollment rejects unsafe or credential-bearing website URLs", asy
     ["badcontrolurl", "https://example.com\n.evil"],
     ["badlongurl", "https://" + "a".repeat(2050) + ".com"]
   ];
-  for (const [handle, website] of invalid) {
-    const result = await enroll(handle, website);
+  for (const [index, [handle, website]] of invalid.entries()) {
+    const result = await enroll(handle, website, "203.0.113." + (100 + index));
     assert.equal(result.response.status, 400, handle);
   }
   assert.equal(db.creators.size, before);
@@ -207,7 +207,7 @@ test("creator enrollment requires a fresh signature matching its public key", as
 });
 
 test("a verified creator can be approved and resolve its local key after refresh", async () => {
-  const result = await enroll();
+  const result = await enroll("securecreator", "https://example.com/creator");
   assert.equal(result.response.status, 201);
   assert.equal(result.data.ownershipVerified, true);
   const owner = await request("GET", "/api/v1/creators/by-key/" + result.fingerprint);
