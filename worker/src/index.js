@@ -52,7 +52,7 @@ function canonical(record) {
 async function verifyRecord(record) {
   try {
     if (!record || record.namespace !== "ultra" || !/^[a-z0-9_-]{3,24}$/.test(record.label) || RESERVED.has(record.label)) return false;
-    if (record.destination && !isSafeHttpsUrl(record.destination)) return false;
+    if (typeof record.destination !== "string" || (record.destination !== "" && !isSafeHttpsUrl(record.destination))) return false;
     if (typeof record.description !== "string" || record.description.length > 160) return false;
     if (record.version !== 1 || typeof record.publicKey !== "string" || typeof record.signature !== "string") return false;
     const keyBytes = b64ToBytes(record.publicKey);
