@@ -1,5 +1,5 @@
 import { handleAI } from "./ai.js";
-import { readJson, consumeRateLimit, pruneExpiredRateLimits } from "./http.js";
+import { readJson, consumeRateLimit, pruneExpiredRateLimits, isSafeHttpsUrl } from "./http.js";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const RESERVED = new Set(["admin","api","www","root","support","security","ultra","nexora","help","billing","login","signup","settings","mail","ftp","ns1","ns2"]);
 const enc = new TextEncoder();
@@ -52,7 +52,7 @@ function canonical(record) {
 async function verifyRecord(record) {
   try {
     if (!record || record.namespace !== "ultra" || !/^[a-z0-9_-]{3,24}$/.test(record.label) || RESERVED.has(record.label)) return false;
-    if (record.destination && (typeof record.destination !== "string" || !record.destination.startsWith("https://"))) return false;
+    if (record.destination && !isSafeHttpsUrl(record.destination)) return false;
     if (typeof record.description !== "string" || record.description.length > 160) return false;
     if (record.version !== 1 || typeof record.publicKey !== "string" || typeof record.signature !== "string") return false;
     const keyBytes = b64ToBytes(record.publicKey);
@@ -186,7 +186,7 @@ async function handle(request, env) {
     const signature = typeof b.signature === "string" ? b.signature : "";
     if (!/^[a-z0-9_]{3,24}$/.test(handle) || RESERVED.has(handle)) return response({ error: "Handle must be 3–24 letters, numbers or underscores and cannot be reserved." }, 400, headers);
     if (!displayName || displayName.length > 60 || bio.length > 240) return response({ error: "Display name is required (max 60); bio max 240 characters." }, 400, headers);
-    if (website && !/^https:\/\//i.test(website)) return response({ error: "Website must begin with https://." }, 400, headers);
+    if (website && !isSafeHttpsUrl(website)) return response({ error: "Website must be an absolute HTTPS URL without credentials or control characters (max 2048 characters)." }, 400, headers);
     if (!freshSignedTimestamp(createdAt)) return response({ error: "Creator proof timestamp is missing, invalid or expired. Try again." }, 400, headers);
     const claim = { handle, displayName, bio, website, createdAt, version: 1, publicKey, fingerprint };
     if (!await verifyDetachedSignature(publicKey, signature, fingerprint, claim)) return response({ error: "Creator key proof is invalid. Profile not created." }, 400, headers);
