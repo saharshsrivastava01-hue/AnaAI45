@@ -2,7 +2,7 @@
 // This is for user-visible links; the Worker never fetches these URLs itself.
 export function isSafeHttpsUrl(value) {
   if (typeof value !== "string" || value.length === 0 || value.length > 2048 ||
-      value !== value.trim() || /[\\u0000-\\u001f\\u007f]/.test(value)) return false;
+      value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) return false;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !!url.hostname && !url.username && !url.password;
