@@ -1,4 +1,5 @@
 const $ = id => document.getElementById(id);
+let trustedAdminEndpoint = "";
 
 function base() {
   const value = $("api").value.trim();
@@ -10,6 +11,58 @@ function base() {
     throw Error("The Worker API URL must use HTTPS and cannot contain credentials, a query or a fragment.");
   }
   return parsed.href.replace(/\/+$/, "");
+}
+
+function requireTrustedAdminEndpoint() {
+  let endpoint;
+  try { endpoint = base(); }
+  catch (error) {
+    trustedAdminEndpoint = "";
+    $("trustAdminEndpoint").checked = false;
+    $("adminToken").value = "";
+    throw error;
+  }
+  if (!endpoint || !$("trustAdminEndpoint").checked || trustedAdminEndpoint !== endpoint) {
+    trustedAdminEndpoint = "";
+    $("trustAdminEndpoint").checked = false;
+    $("adminToken").value = "";
+    throw Error("Verify the exact HTTPS Worker URL and enable its page-session trust checkbox before sending the operator token.");
+  }
+  return endpoint;
+}
+
+function updateAdminEndpointTrust() {
+  const checkbox = $("trustAdminEndpoint");
+  if (!checkbox.checked) {
+    trustedAdminEndpoint = "";
+    msg("adminTrustStatus", "Endpoint trust is off. The operator token will not be sent.", false);
+    return;
+  }
+  let endpoint;
+  try { endpoint = base(); }
+  catch (error) {
+    checkbox.checked = false;
+    trustedAdminEndpoint = "";
+    throw error;
+  }
+  if (!endpoint) {
+    checkbox.checked = false;
+    trustedAdminEndpoint = "";
+    throw Error("Enter the Worker API URL before trusting it.");
+  }
+  const accepted = window.confirm(
+    "ULTRA will send the shared moderation bearer token only to this exact endpoint for this page session:\\n\\n" +
+    endpoint +
+    "\\n\\nContinue only if you independently verified that this endpoint is controlled by the ULTRA operator."
+  );
+  if (!accepted) {
+    checkbox.checked = false;
+    trustedAdminEndpoint = "";
+    msg("adminTrustStatus", "Endpoint trust was not enabled.", false);
+    return;
+  }
+  trustedAdminEndpoint = endpoint;
+  msg("adminTrustStatus", "Endpoint pinned for this page session: " + endpoint + ". This confirmation does not independently prove domain ownership.", true);
 }
 
 function msg(id, text, ok) {
@@ -264,6 +317,7 @@ async function connect() {
 }
 
 async function moderate(path, status) {
+  requireTrustedAdminEndpoint();
   const token = $("adminToken").value;
   if (!token) throw Error("Enter the operator token.");
   return call(path, { method:"POST", headers:{ authorization:"Bearer " + token }, body:JSON.stringify({ status }) });
@@ -281,6 +335,7 @@ async function loadQueue() {
   const status = "queueStatus";
   container.replaceChildren();
   try {
+    requireTrustedAdminEndpoint();
     const token = $("adminToken").value;
     if (!token) throw Error("Enter the operator token.");
     const d = await call("/api/v1/moderation/queue", { headers:{ authorization:"Bearer " + token } });
@@ -365,6 +420,17 @@ async function loadQueue() {
     msg(status, e.message, false);
   }
 }
+
+$("api").addEventListener("input", () => {
+  trustedAdminEndpoint = "";
+  $("trustAdminEndpoint").checked = false;
+  $("adminToken").value = "";
+  msg("adminTrustStatus", "Worker URL changed. Verify and trust the new exact endpoint before moderation.", false);
+});
+$("trustAdminEndpoint").addEventListener("change", () => {
+  try { updateAdminEndpointTrust(); }
+  catch (error) { msg("adminTrustStatus", error.message, false); }
+});
 
 $("connect").addEventListener("click", connect);
 $("createProfile").addEventListener("click", async () => {
