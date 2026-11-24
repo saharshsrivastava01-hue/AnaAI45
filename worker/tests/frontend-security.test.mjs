@@ -55,7 +55,7 @@ test("moderation token requires an explicit exact-endpoint page-session trust pi
   assert.ok(moderate.indexOf("requireTrustedAdminEndpoint()") < moderate.indexOf('$("adminToken").value'));
   assert.ok(queue.indexOf("requireTrustedAdminEndpoint()") < queue.indexOf('$("adminToken").value'));
   assert.match(script, /trustedAdminEndpoint = ""/);
-  assert.match(script, /\$("adminToken")\.value = ""/);
+  assert.match(script, /\$\("adminToken"\)\.value = ""/);
   assert.doesNotMatch(script, /localStorage\.(?:setItem|getItem)\([^\n]*trustedAdminEndpoint/);
   assert.doesNotMatch(script, /sessionStorage\./);
 });
