@@ -40,3 +40,22 @@ test("Worker endpoint validation and fetch settings protect operator requests", 
   assert.match(script, /referrerPolicy: "no-referrer"/);
   assert.doesNotMatch(script, /localStorage\.setItem\([^\n]*adminToken/i);
 });
+
+test("moderation token requires an explicit exact-endpoint page-session trust pin", () => {
+  assert.match(html, /id="trustAdminEndpoint"/);
+  assert.match(html, /id="adminTrustStatus"/);
+  assert.match(html, /independently verified that the exact HTTPS Worker API URL/);
+  assert.match(script, /let trustedAdminEndpoint = ""/);
+  assert.match(script, /window\.confirm\(/);
+  assert.match(script, /trustedAdminEndpoint !== endpoint/);
+  const moderate = script.slice(script.indexOf("async function moderate"), script.indexOf("function moderationButton"));
+  const queue = script.slice(script.indexOf("async function loadQueue"), script.indexOf('\$("connect")'));
+  assert.match(moderate, /requireTrustedAdminEndpoint\(\)/);
+  assert.match(queue, /requireTrustedAdminEndpoint\(\)/);
+  assert.ok(moderate.indexOf("requireTrustedAdminEndpoint()") < moderate.indexOf('$("adminToken").value'));
+  assert.ok(queue.indexOf("requireTrustedAdminEndpoint()") < queue.indexOf('$("adminToken").value'));
+  assert.match(script, /trustedAdminEndpoint = ""/);
+  assert.match(script, /\$("adminToken")\.value = ""/);
+  assert.doesNotMatch(script, /localStorage\.(?:setItem|getItem)\([^\n]*trustedAdminEndpoint/);
+  assert.doesNotMatch(script, /sessionStorage\./);
+});
