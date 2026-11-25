@@ -31,7 +31,7 @@ Existing creator rows created before this change have no owner key. The migratio
 - `GET /api/v1/moderation/queue` — operator-only pending creator, post and report queue.
 - `POST /api/v1/moderation/reports/{id}` — set a pending report to `reviewed` or `dismissed`.
 - Each successful report, creator or post status transition is recorded in `moderation_events` in the same D1 batch as the status update. The private queue returns the 50 most recent events.
-- Database triggers reject ordinary SQL `UPDATE` and `DELETE` operations against audit rows. This protects against accidental/application-level rewriting; a database administrator can still drop the triggers or alter the database, so this is not tamper-proof or independently immutable storage.
+- Database triggers reject `UPDATE`, `DELETE`, `INSERT OR REPLACE`, and duplicate-ID UPSERT attempts against existing audit rows. The extra insert guard matters because SQLite `REPLACE` can bypass delete triggers when recursive triggers are disabled. This protects against ordinary SQL replacement; a database administrator can still drop the triggers or alter the database, so this is not tamper-proof or independently immutable storage.
 - The current audit actor label is `shared-admin-token`. It records that the shared operator credential was used; it does **not** identify an individual moderator. Individual operator accounts and MFA remain future work.
 - `POST /api/v1/moderation/creators/{id}` — approve or reject a pending profile. Approval requires verified owner-key fields.
 - `POST /api/v1/moderation/posts/{id}` — approve or reject a pending post.
@@ -81,9 +81,10 @@ wrangler d1 execute ultra-registry --remote --file=./migrations/0002_creator_key
 wrangler d1 execute ultra-registry --remote --file=./migrations/0003_moderation_audit_log.sql
 wrangler d1 execute ultra-registry --remote --file=./migrations/0004_moderation_audit_immutability.sql
 wrangler d1 execute ultra-registry --remote --file=./migrations/0005_rate_limit_retention_index.sql
+wrangler d1 execute ultra-registry --remote --file=./migrations/0006_moderation_audit_no_replace.sql
 ```
 
-Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and ordinary-DML immutability triggers. Migration 0005 adds the rate-limit retention index. These migrations use `IF NOT EXISTS` and are safe to re-run.
+Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and update/delete protection. Migration 0005 adds the rate-limit retention index. Migration 0006 blocks replacement of an existing audit row through SQLite `REPLACE` or duplicate-ID UPSERT conflict handling. These migrations use `IF NOT EXISTS` and are safe to re-run.
 
 ## Worker configuration and deployment
 
