@@ -93,3 +93,13 @@ BEFORE DELETE ON moderation_events
 BEGIN
   SELECT RAISE(ABORT, 'moderation_events is append-only');
 END;
+
+-- Block INSERT OR REPLACE / UPSERT-style attempts from replacing an existing audit ID.
+-- SQLite's REPLACE conflict algorithm may bypass DELETE triggers when recursive_triggers
+-- is disabled, so reject duplicate IDs before conflict resolution occurs.
+CREATE TRIGGER IF NOT EXISTS moderation_events_no_replace
+BEFORE INSERT ON moderation_events
+WHEN EXISTS (SELECT 1 FROM moderation_events WHERE id = NEW.id)
+BEGIN
+  SELECT RAISE(ABORT, 'moderation_events is append-only');
+END;
