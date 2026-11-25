@@ -10,6 +10,7 @@ const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8")
 const migration = await readFile(new URL("../migrations/0002_creator_key_ownership.sql", import.meta.url), "utf8");
 const auditMigration = await readFile(new URL("../migrations/0003_moderation_audit_log.sql", import.meta.url), "utf8");
 const auditImmutabilityMigration = await readFile(new URL("../migrations/0004_moderation_audit_immutability.sql", import.meta.url), "utf8");
+const auditNoReplaceMigration = await readFile(new URL("../migrations/0006_moderation_audit_no_replace.sql", import.meta.url), "utf8");
 const http = await readFile(new URL("../src/http.js", import.meta.url), "utf8");
 const ai = await readFile(new URL("../src/ai.js", import.meta.url), "utf8");
 
@@ -98,6 +99,15 @@ test("moderation audit rows reject ordinary updates and deletes", () => {
     assert.match(sql, /BEFORE UPDATE ON moderation_events/);
     assert.match(sql, /CREATE TRIGGER IF NOT EXISTS moderation_events_no_delete/);
     assert.match(sql, /BEFORE DELETE ON moderation_events/);
+    assert.match(sql, /RAISE\(ABORT, 'moderation_events is append-only'\)/);
+  }
+});
+
+test("moderation audit schema blocks INSERT OR REPLACE and UPSERT replacement", () => {
+  for (const sql of [schema, auditNoReplaceMigration]) {
+    assert.match(sql, /CREATE TRIGGER IF NOT EXISTS moderation_events_no_replace/);
+    assert.match(sql, /BEFORE INSERT ON moderation_events/);
+    assert.match(sql, /WHEN EXISTS \(SELECT 1 FROM moderation_events WHERE id = NEW\.id\)/);
     assert.match(sql, /RAISE\(ABORT, 'moderation_events is append-only'\)/);
   }
 });
