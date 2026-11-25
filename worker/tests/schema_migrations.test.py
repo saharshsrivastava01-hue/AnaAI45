@@ -38,6 +38,22 @@ def test_fresh_schema():
         lambda: db.execute("DELETE FROM moderation_events WHERE id='fresh-event'"),
         "Fresh schema must reject audit deletes",
     )
+    replacement_values = ("fresh-event", "report", "report-1", "tampered", "pending", "dismissed", "2026-01-02T00:00:00Z")
+    expect_integrity_error(
+        lambda: db.execute(
+            "INSERT OR REPLACE INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?)",
+            replacement_values,
+        ),
+        "Fresh schema must reject INSERT OR REPLACE of an existing audit ID",
+    )
+    expect_integrity_error(
+        lambda: db.execute(
+            "INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET action=excluded.action",
+            replacement_values,
+        ),
+        "Fresh schema must reject UPSERT replacement of an existing audit ID",
+    )
+    assert db.execute("SELECT action FROM moderation_events WHERE id='fresh-event'").fetchone()[0] == "reviewed"
     db.close()
 
 
@@ -85,8 +101,10 @@ def test_existing_database_migrations():
     db.executescript((MIGRATIONS / "0003_moderation_audit_log.sql").read_text(encoding="utf-8"))
     migration_4 = (MIGRATIONS / "0004_moderation_audit_immutability.sql").read_text(encoding="utf-8")
     migration_5 = (MIGRATIONS / "0005_rate_limit_retention_index.sql").read_text(encoding="utf-8")
+    migration_6 = (MIGRATIONS / "0006_moderation_audit_no_replace.sql").read_text(encoding="utf-8")
     db.executescript(migration_4)
     db.executescript(migration_5)
+    db.executescript(migration_6)
     indexes = {row[1] for row in db.execute("PRAGMA index_list(rate_limits)")}
     assert "idx_rate_limits_window_started" in indexes
     plan = db.execute(
@@ -105,6 +123,7 @@ def test_existing_database_migrations():
     db.executescript((MIGRATIONS / "0003_moderation_audit_log.sql").read_text(encoding="utf-8"))
     db.executescript(migration_4)
     db.executescript(migration_5)
+    db.executescript(migration_6)
 
     db.execute(
         "INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?)",
@@ -118,6 +137,22 @@ def test_existing_database_migrations():
         lambda: db.execute("DELETE FROM moderation_events WHERE id='migration-event'"),
         "Migrated database must reject audit deletes",
     )
+    replacement_values = ("migration-event", "report", "report-atomic", "tampered", "pending", "dismissed", "2026-01-02T00:00:00Z")
+    expect_integrity_error(
+        lambda: db.execute(
+            "INSERT OR REPLACE INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?)",
+            replacement_values,
+        ),
+        "Migrated database must reject INSERT OR REPLACE of an existing audit ID",
+    )
+    expect_integrity_error(
+        lambda: db.execute(
+            "INSERT INTO moderation_events(id,target_type,target_id,action,from_status,to_status,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET action=excluded.action",
+            replacement_values,
+        ),
+        "Migrated database must reject UPSERT replacement of an existing audit ID",
+    )
+    assert db.execute("SELECT action FROM moderation_events WHERE id='migration-event'").fetchone()[0] == "reviewed"
 
     # Exercise the same audit-then-status transaction pattern used by the Worker.
     db.commit()
