@@ -224,7 +224,8 @@ async function handleGenerate(req, res) {
       model: MODEL,
       instructions: "You are SparkLoop AI, a careful social-content strategist. Produce practical, original, truthful marketing drafts. Never invent evidence or claim guaranteed virality. Refuse requests for spam, deceptive impersonation, fake engagement, or fabricated testimonials. Output clean headings and usable copy.",
       input: prompt,
-      max_output_tokens: ["campaign", "repurpose", "carousel", "storyboard"].includes(mode) ? 2800 : 2200,\n      store: false,
+      max_output_tokens: ["campaign", "repurpose", "carousel", "storyboard"].includes(mode) ? 2800 : 2200,
+      store: false,
     }),
     signal: AbortSignal.timeout(60000),
   });
