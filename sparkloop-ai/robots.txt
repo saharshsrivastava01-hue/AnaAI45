@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://sparkloop-ai.onrender.com/sitemap.xml
+Sitemap: https://sparkloop-ai-production.onrender.com/sitemap.xml
