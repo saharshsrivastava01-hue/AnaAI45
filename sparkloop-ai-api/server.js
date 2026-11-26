@@ -3,6 +3,13 @@ import http from "node:http";
 const PORT = Number(process.env.PORT || 10000);
 const APP_ORIGIN = (process.env.APP_ORIGIN || "https://sparkloop-ai.onrender.com").replace(/\/$/, "");
 const MODEL = process.env.OPENAI_MODEL || "gpt-6.2-sol";
+const MODEL_CATALOG = [
+  { id: "gpt-6.2-astra", name: "GPT-6.2 Astra", inputUsdPerMillion: 8, outputUsdPerMillion: 40, description: "Highest capability for demanding creative strategy" },
+  { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", inputUsdPerMillion: 2, outputUsdPerMillion: 10, description: "Balanced model for regular content work" },
+  { id: "gpt-6.1-terra", name: "GPT-6.1 Terra", inputUsdPerMillion: 1, outputUsdPerMillion: 5, description: "Efficient writing and visual reasoning" },
+  { id: "gpt-6-luna", name: "GPT-6 Luna", inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.5, description: "Lowest-cost high-volume option" }
+];
+const MODEL_IDS = new Set(MODEL_CATALOG.map((item) => item.id));
 const API_KEY = process.env.OPENAI_API_KEY || "";
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS = Number(process.env.RATE_LIMIT_PER_WINDOW || 8);
@@ -109,7 +116,7 @@ async function handleGenerate(req, res) {
     return send(res, 503, {
       error: "AI_NOT_CONFIGURED",
       message: "The AI backend is deployed, but OPENAI_API_KEY has not been added as a private server environment variable yet.",
-      model: MODEL,
+      model,
     });
   }
 
@@ -128,42 +135,84 @@ async function handleGenerate(req, res) {
   dailyCount += 1;
 
   const body = await readJson(req);
-  const mode = body.mode === "campaign" ? "campaign" : "content";
+  const supportedModes = new Set(["content", "campaign", "repurpose", "carousel", "story", "storyboard", "adcopy", "seo", "hooklab"]);
+  const mode = supportedModes.has(body.mode) ? body.mode : "content";
   const topic = clean(body.topic, 300);
   const audience = clean(body.audience, 160) || "people interested in this subject";
-  const platform = clean(body.platform, 40) || "Instagram Reels";
-  const tone = clean(body.tone, 60) || "Clear and useful";
+  const platform = clean(body.platform, 80) || "Instagram Reels";
+  const tone = clean(body.tone, 80) || "Clear and useful";
   const proof = clean(body.proof, 300);
-  const goal = clean(body.goal, 100) || "Build awareness";
+  const goal = clean(body.goal, 120) || "Build awareness";
+  const brandVoice = clean(body.brandVoice, 1000);
+  const constraints = clean(body.constraints, 500);
   const duration = ["15", "30", "60"].includes(String(body.duration)) ? String(body.duration) : "30";
+  const selectedModel = clean(body.model, 80);
+  const model = MODEL_IDS.has(selectedModel) ? selectedModel : MODEL;
 
   if (!topic) return send(res, 400, { error: "TOPIC_REQUIRED", message: "Please provide a topic or offer." });
 
-  const prompt = mode === "campaign"
-    ? [
-        "Create a practical 7-day organic content campaign.",
-        "Objective: " + goal,
-        "Offer: " + topic,
-        "Audience: " + audience,
-        "Platform: " + platform,
-        "Tone: " + tone,
-        "Return a seven-day plan with one post idea, short copy direction, and a measurable KPI per day.",
-        "Never fabricate testimonials, customer results, scarcity, endorsements, or performance metrics.",
-        "Do not promise virality, guaranteed reach, revenue, or rankings.",
-      ].join("\n")
-    : [
-        "Create a high-quality social media content draft for a real creator or small business.",
-        "Topic / offer: " + topic,
-        "Target audience: " + audience,
-        "Platform: " + platform,
-        "Tone: " + tone,
-        "Video duration: " + duration + " seconds",
-        "Campaign goal: " + goal,
-        proof ? "User-supplied real proof point (do not embellish): " + proof : "No proof point supplied; do not invent one.",
-        "Return: 3 distinct hooks; a timed short-form script; caption; clear non-deceptive CTA; 4-7 relevant hashtags; visual shot suggestions; an accessibility-friendly alt-text idea.",
-        "Keep language specific and natural. Do not invent facts, testimonials, outcomes, product features, or customer claims.",
-        "Do not promise virality or guaranteed performance. Make it useful, original, and platform-appropriate.",
-      ].join("\n");
+  const common = [
+    "Business/topic: " + topic,
+    "Audience: " + audience,
+    "Primary platform: " + platform,
+    "Tone: " + tone,
+    "Goal: " + goal,
+    brandVoice ? "Brand voice guidance: " + brandVoice : "Use a clear, natural brand voice.",
+    proof ? "User-provided proof point (do not embellish): " + proof : "No proof point supplied; do not invent proof.",
+    constraints ? "Additional constraints: " + constraints : "",
+    "Do not invent facts, customer results, testimonials, endorsements, scarcity, prices, or product capabilities.",
+    "Do not promise virality, guaranteed reach, revenue, rankings, or performance.",
+    "Create genuinely useful, specific, original work. Keep platform policies, copyright and accessibility in mind."
+  ].filter(Boolean);
+
+  const modeInstructions = {
+    content: [
+      "Create a high-quality social media content draft.",
+      "Video duration: " + duration + " seconds.",
+      "Return 3 distinct hooks, a timed script, caption, honest CTA, 4-7 relevant hashtags, shot suggestions and accessible alt-text."
+    ],
+    campaign: [
+      "Create a practical 7-day organic content campaign.",
+      "Return a seven-day plan with a post concept, draft copy direction, format and measurable KPI per day.",
+      "Add a weekly review checklist and simple A/B test suggestions."
+    ],
+    repurpose: [
+      "Repurpose this idea into platform-specific content for Instagram Reels, YouTube Shorts, TikTok, LinkedIn and WhatsApp.",
+      "Adapt length, opening hook, CTA and formatting for each platform rather than repeating identical text.",
+      "Return separate labelled blocks for each platform and a shared core message."
+    ],
+    carousel: [
+      "Create an 8-slide educational social carousel.",
+      "For every slide return: slide number, short headline (max 8 words), concise body copy, visual composition idea and accessible alt-text.",
+      "Include a cover hook, a useful sequence, a practical takeaway and a non-deceptive final CTA."
+    ],
+    story: [
+      "Create a 6-frame vertical story sequence.",
+      "For each frame return: frame purpose, on-screen text (short), visual direction, interactive sticker suggestion and transition to next frame.",
+      "Use a coherent narrative arc and one clear CTA."
+    ],
+    storyboard: [
+      "Create a 30-60 second vertical video storyboard.",
+      "Return 8 shots with timecode, camera framing, visual action, voiceover/dialogue, on-screen text, sound suggestion and editing transition.",
+      "Keep it feasible for a small creator using a phone camera."
+    ],
+    adcopy: [
+      "Create an advertising creative pack for a legitimate offer.",
+      "Return 5 headline alternatives, 3 primary-text versions, 2 CTA alternatives, 3 creative concepts and a claims/compliance checklist.",
+      "Clearly mark any claim that needs substantiation; do not invent evidence."
+    ],
+    seo: [
+      "Create an SEO content brief, not fabricated search-volume data.",
+      "Return 5 title options, a meta description, search intent, a structured H1/H2 outline, FAQ ideas and internal-link suggestions.",
+      "Do not claim exact Google ranking, traffic or keyword-volume estimates."
+    ],
+    hooklab: [
+      "Create 12 distinct opening hooks using different creative angles: problem, curiosity, contrast, checklist, myth correction, story, demonstration and question.",
+      "For each hook explain intended audience reaction and one visual opening idea.",
+      "Do not assign fake predicted views or engagement scores. Finish with a simple A/B testing protocol."
+    ]
+  };
+  const prompt = [...common, ...modeInstructions[mode]].join("\n");
 
   const upstream = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -175,7 +224,7 @@ async function handleGenerate(req, res) {
       model: MODEL,
       instructions: "You are SparkLoop AI, a careful social-content strategist. Produce practical, original, truthful marketing drafts. Never invent evidence or claim guaranteed virality. Refuse requests for spam, deceptive impersonation, fake engagement, or fabricated testimonials. Output clean headings and usable copy.",
       input: prompt,
-      max_output_tokens: 1800,
+      max_output_tokens: ["campaign", "repurpose", "carousel", "storyboard"].includes(mode) ? 2800 : 2200,\n      store: false,
     }),
     signal: AbortSignal.timeout(60000),
   });
@@ -201,7 +250,7 @@ async function handleGenerate(req, res) {
       console.error("Could not record usage metric:", error.message);
     }
   }
-  return send(res, 200, { text, model: MODEL, mode, database: dbStatus });
+  return send(res, 200, { text, model, mode, database: dbStatus });
 }
 
 const server = http.createServer(async (req, res) => {
