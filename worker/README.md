@@ -84,7 +84,7 @@ wrangler d1 execute ultra-registry --remote --file=./migrations/0005_rate_limit_
 wrangler d1 execute ultra-registry --remote --file=./migrations/0006_moderation_audit_no_replace.sql
 ```
 
-Apply migration 0002 only once; it adds creator public-key/fingerprint fields and post signature audit fields. It does not invent ownership for existing creator rows. Migrations 0003 and 0004 create the moderation event log, indexes and update/delete protection. Migration 0005 adds the rate-limit retention index. Migration 0006 blocks replacement of an existing audit row through SQLite `REPLACE` or duplicate-ID UPSERT conflict handling. These migrations use `IF NOT EXISTS` and are safe to re-run.
+Apply migration 0002 exactly once; it adds creator public-key/fingerprint fields and post signature audit fields without inventing ownership for existing creator rows. Migration 0002 uses SQLite `ALTER TABLE ... ADD COLUMN` statements and is **not safe to re-run**. If it was interrupted or partially applied, inspect `PRAGMA table_info(creators)` and `PRAGMA table_info(posts)` and apply only the missing column additions; do not blindly rerun the whole file. Migrations 0003–0006 use `IF NOT EXISTS` for their tables, indexes and triggers and are safe to re-run.
 
 ## Worker configuration and deployment
 
@@ -108,7 +108,7 @@ From this directory:
 npm test
 ```
 
-The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization, strong operator-token checks, per-IP operator-auth throttling and CORS allowlist behavior. The CI workflow also runs `tests/schema_migrations.test.py` using Python's standard SQLite library to exercise the fresh schema, the ordered existing-database migrations, audit immutability triggers and rollback of an audit/status transaction when its status update fails. SQLite checks improve migration confidence but do not replace a live Cloudflare D1 integration test or external security review.
+The suite includes Worker route behavior tests with a D1 test double, signature verification, wrong-key rejection, replay rejection, legacy-account approval protection, report moderation authorization (reviewed and dismissed outcomes, invalid-status rejection and one-time resolution), strong operator-token checks, per-IP operator-auth throttling and CORS allowlist behavior. The CI workflow also runs `tests/schema_migrations.test.py` using Python's standard SQLite library to exercise the fresh schema, the ordered existing-database migrations, audit immutability triggers and rollback of an audit/status transaction when its status update fails. SQLite checks improve migration confidence but do not replace a live Cloudflare D1 integration test or external security review.
 
 
 ### Rate-limit bucket retention
