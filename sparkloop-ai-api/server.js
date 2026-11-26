@@ -1,5 +1,4 @@
 import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 10000);
 const APP_ORIGIN = (process.env.APP_ORIGIN || "https://sparkloop-ai.onrender.com").replace(/\/$/, "");
@@ -7,6 +6,9 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-6.2-sol";
 const API_KEY = process.env.OPENAI_API_KEY || "";
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS = Number(process.env.RATE_LIMIT_PER_WINDOW || 8);
+const MAX_DAILY_REQUESTS = Number(process.env.MAX_DAILY_REQUESTS || 6);
+let dailyDate = new Date().toISOString().slice(0, 10);
+let dailyCount = 0;
 const MAX_BODY = 12_000;
 const rates = new Map();
 let dbPool = null;
@@ -118,6 +120,12 @@ async function handleGenerate(req, res) {
   if (!limit.allowed) {
     return send(res, 429, { error: "RATE_LIMITED", message: "Too many requests. Please try again after the rate-limit window." });
   }
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
+  if (dailyCount >= MAX_DAILY_REQUESTS) {
+    return send(res, 429, { error: "DAILY_LIMIT_REACHED", message: "This prototype has reached its daily AI request cap. Try again tomorrow or adjust the server-side limit after reviewing API costs." });
+  }
+  dailyCount += 1;
 
   const body = await readJson(req);
   const mode = body.mode === "campaign" ? "campaign" : "content";
