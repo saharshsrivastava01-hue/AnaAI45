@@ -287,6 +287,58 @@ test("abuse reports can only be resolved by an operator and only once", async ()
 });
 
 
+test("abuse reports support dismissal and reject invalid transitions", async () => {
+  const eventsBefore = db.moderationEvents.size;
+  const created = await request(
+    "POST",
+    "/api/v1/reports",
+    { label:"dismissal-test", reason:"Spam", details:"Repeated unsolicited posts" },
+    undefined,
+    "198.51.100.61"
+  );
+  assert.equal(created.status, 201);
+  const report = [...db.reports.values()].find(row => row.label === "dismissal-test");
+  assert.ok(report);
+
+  const invalid = await request(
+    "POST",
+    "/api/v1/moderation/reports/" + report.id,
+    { status:"approved" },
+    TEST_ADMIN_TOKEN,
+    "198.51.100.62"
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(report.status, "pending");
+  assert.equal(db.moderationEvents.size, eventsBefore);
+
+  const dismissed = await request(
+    "POST",
+    "/api/v1/moderation/reports/" + report.id,
+    { status:"dismissed" },
+    TEST_ADMIN_TOKEN,
+    "198.51.100.63"
+  );
+  assert.equal(dismissed.status, 200);
+  assert.equal(report.status, "dismissed");
+  assert.equal(db.moderationEvents.size, eventsBefore + 1);
+  const event = [...db.moderationEvents.values()].find(row => row.target_id === report.id);
+  assert.equal(event?.target_type, "report");
+  assert.equal(event?.action, "dismissed");
+  assert.equal(event?.from_status, "pending");
+  assert.equal(event?.to_status, "dismissed");
+
+  const repeated = await request(
+    "POST",
+    "/api/v1/moderation/reports/" + report.id,
+    { status:"reviewed" },
+    TEST_ADMIN_TOKEN,
+    "198.51.100.64"
+  );
+  assert.equal(repeated.status, 404);
+  assert.equal(report.status, "dismissed");
+  assert.equal(db.moderationEvents.size, eventsBefore + 1);
+});
+
 test("oversized and malformed JSON bodies are rejected before database writes", async () => {
   const before = db.reports.size;
   const oversized = await rawRequest(
