@@ -16,7 +16,7 @@
 </head>
 <body><main class="wrap">
 <header class="top"><div><div class="brand">✦ SPARKLOOP<span> AI</span><span class="tag">BETA</span></div><div class="muted tiny">A practical content and campaign workspace</div></div>
-<nav class="nav" aria-label="Main navigation"><button class="active" data-tab="studio">Studio</button><button data-tab="calendar">Calendar</button><button data-tab="ideas">Ideas</button><button data-tab="growth">Growth</button><button data-tab="campaigns">Campaigns</button><button data-tab="wallet">Wallet</button></nav></header>
+<nav class="nav" aria-label="Main navigation"><button class="active" data-tab="studio">Studio</button><button data-tab="calendar">Calendar</button><button data-tab="ideas">Ideas</button><button data-tab="clients">Clients</button><button data-tab="growth">Growth</button><button data-tab="campaigns">Campaigns</button><button data-tab="wallet">Wallet</button></nav></header>
 <section class="hero"><h1>Turn your next idea into<br><span>content worth sharing.</span></h1><p class="muted">Create platform-ready hooks, short scripts, captions and campaign plans. Build a consistent publishing habit without fake engagement or promises of instant virality.</p><div class="stats"><div class="stat"><b id="count">0</b><small>Drafts generated on this device</small></div><div class="stat"><b>5</b><small>Platform formats</small></div><div class="stat"><b>₹0.00</b><small>Wallet demo balance</small></div></div></section>
 
 <section id="studio" class="grid">
@@ -53,6 +53,41 @@
 <div class="actions"><button id="saveMetric">Save real results</button><button id="exportMetrics" class="ghost">Export CSV</button></div><div id="metricSummary" class="stats"></div><div id="metricItems" class="cards"></div>
 </section>
 <section id="campaigns" class="panel hidden"><h2>7-day campaign planner</h2><p class="muted tiny">A suggested organic publishing sequence. This tool does not spend ad money, message people or publish automatically.</p><div class="two"><div class="field"><label for="campaignGoal">Campaign objective</label><select id="campaignGoal"><option>Get qualified enquiries</option><option>Grow brand awareness</option><option>Drive website visits</option><option>Promote a launch</option><option>Build a community</option></select></div><div class="field"><label for="offer">Offer / product</label><input id="offer" maxlength="160" placeholder="Describe what you offer"></div></div><button id="plan">Build my 7-day plan</button><div id="planout" class="output" style="margin-top:14px">Your campaign plan will appear here.</div><div class="actions"><button class="secondary" id="copyPlan">Copy campaign plan</button></div></section>
+<section id="clients" class="panel hidden">
+<h2>Client pipeline</h2>
+<p class="muted tiny">Track prospects, project values and follow-ups. Email actions open your own mail app for review; nothing is sent automatically. Lead records are stored only in this browser on this device.</p>
+<div id="leadSummary" class="stats"></div>
+<div class="grid">
+  <div class="panel" style="margin:0">
+    <h3 id="leadFormTitle">Add a prospect</h3>
+    <div class="field"><label for="leadCompany">Business / client name *</label><input id="leadCompany" maxlength="120" placeholder="e.g. Northside Café"></div>
+    <div class="field"><label for="leadContact">Contact person</label><input id="leadContact" maxlength="100" placeholder="Name"></div>
+    <div class="two">
+      <div class="field"><label for="leadEmail">Email</label><input id="leadEmail" type="email" maxlength="160" placeholder="contact@example.com"></div>
+      <div class="field"><label for="leadPhone">Phone</label><input id="leadPhone" type="tel" maxlength="40" placeholder="+91 …"></div>
+    </div>
+    <div class="field"><label for="leadWebsite">Website / profile</label><input id="leadWebsite" type="url" maxlength="240" placeholder="https://…"></div>
+    <div class="two">
+      <div class="field"><label for="leadSource">Lead source</label><select id="leadSource"><option>Website</option><option>Referral</option><option>LinkedIn</option><option>Email outreach</option><option>Phone call</option><option>Walk-in</option><option>Other</option></select></div>
+      <div class="field"><label for="leadStage">Pipeline stage</label><select id="leadStage"><option>New</option><option>Contacted</option><option>Qualified</option><option>Proposal sent</option><option>Won</option><option>Lost</option></select></div>
+    </div>
+    <div class="two">
+      <div class="field"><label for="leadValue">Potential project value (₹)</label><input id="leadValue" type="number" min="0" max="100000000" step="1" value="0"></div>
+      <div class="field"><label for="leadFollowup">Next follow-up date</label><input id="leadFollowup" type="date"></div>
+    </div>
+    <div class="field"><label for="leadNotes">Notes / next action</label><textarea id="leadNotes" maxlength="1200" placeholder="What does the client need? What did you agree to do next?"></textarea></div>
+    <div class="actions"><button id="saveLead">Save prospect</button><button class="ghost hidden" id="cancelLeadEdit" type="button">Cancel edit</button></div>
+    <p class="muted tiny" id="leadFeedback" role="status"></p>
+  </div>
+  <div class="panel" style="margin:0">
+    <h3>Find and manage prospects</h3>
+    <div class="field"><label for="leadSearch">Search company, contact, email or notes</label><input id="leadSearch" type="search" placeholder="Search leads…"></div>
+    <div class="field"><label for="leadFilter">Filter by stage</label><select id="leadFilter"><option value="">All stages</option><option>New</option><option>Contacted</option><option>Qualified</option><option>Proposal sent</option><option>Won</option><option>Lost</option></select></div>
+    <div class="actions"><button class="secondary" id="exportLeads">Export leads CSV</button></div>
+    <div id="leadList" class="cards" style="margin-top:14px"><div class="empty">No prospects saved yet.</div></div>
+  </div>
+</div>
+</section>
 <section id="wallet" class="panel hidden"><h2>Wallet & payments</h2><div class="stat" style="max-width:300px"><b>₹0.00</b><small>Verified available balance · no payment provider connected</small></div><div class="notice">Demo only: this app does not hold money, issue credit, or send UPI payments. A ₹10 crore balance cannot be created as real funds. Only successful, verified payments from a regulated payment provider may be shown as wallet funds.</div><h3>What is required for real UPI payments?</h3><p class="muted tiny">A registered merchant account with an authorised payment provider, server-side payment creation, signed webhook verification, transaction reconciliation, refund handling and secure payout permissions. Never enter a UPI PIN, OTP or bank password into this app.</p><div class="empty"><b>Payment integration status:</b> Not connected<br><span class="muted tiny">No deposits, withdrawals or GPay transfers are available in this prototype.</span></div></section>
 
 <footer class="foot">© <span id="year"></span> SparkLoop AI · Beta prototype · <a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a><br>Content suggestions are drafts, not verified claims. Review before publishing. No guaranteed reach, rankings or income.</footer>
@@ -64,7 +99,7 @@ $("count").textContent=total;$("year").textContent=new Date().getFullYear();
 const ideas=[["The common mistake","Explain one avoidable mistake your audience makes, why it happens and a simple fix."],["Before you buy","Give three questions people should ask before choosing a product or service in your category."],["Behind the process","Show the real steps, people or decisions involved in delivering your product."],["A quick checklist","Create a short checklist that helps your audience make a better decision."],["Myth versus fact","Choose a genuine misconception in your field and explain the accurate version."],["Customer question","Answer one question prospects repeatedly ask before making a purchase."]];
 $("ideaCards").innerHTML=ideas.map((x,i)=>'<article class="item"><span class="pill">Prompt '+(i+1)+'</span><h3>'+x[0]+'</h3><p class="muted tiny">'+x[1]+'</p><button class="ghost useIdea" data-idea="'+i+'">Use this idea</button></article>').join("");
 document.querySelectorAll(".useIdea").forEach(b=>b.addEventListener("click",()=>{$("topic").value=ideas[Number(b.dataset.idea)][0]+": "+ideas[Number(b.dataset.idea)][1];switchTab("studio")}));
-function switchTab(name){document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===name));["studio","calendar","ideas","growth","campaigns","wallet"].forEach(id=>$(id).classList.toggle("hidden",id!==name));if(name==="calendar")renderCalendar()}
+function switchTab(name){document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===name));["studio","calendar","ideas","growth","clients","campaigns","wallet"].forEach(id=>$(id).classList.toggle("hidden",id!==name));if(name==="calendar")renderCalendar();if(name==="clients")renderLeads()}
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
 function safeText(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 const API_BASE="https://sparkloop-ai-production-api.onrender.com";
@@ -87,7 +122,7 @@ return "HOOK OPTIONS\n"+hooks.slice(0,3).map((x,i)=>(i+1)+". "+x).join("\n")+"\n
 }
 async function callModel(payload){const r=await fetch(API_BASE+"/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw Object.assign(new Error(data.message||"AI service unavailable"),{code:data.error||"API_ERROR"});return data;}
 $("generate").onclick=async()=>{let topic=$("topic").value.trim(),aud=$("audience").value.trim()||"people interested in this topic",platform=$("platform").value,tone=$("tone").value,duration=$("duration").value,goal=$("contentGoal").value,proof=$("proof").value.trim(),mode=$("outputMode").value,model=$("model").value,brandVoice=$("brandVoice").value;if(!topic){$("feedback").textContent="Enter a topic first.";return}const button=$("generate");button.disabled=true;button.textContent="Generating…";$("feedback").textContent="Preparing your creative pack…";try{const d=await callModel({mode,topic,audience:aud,platform,tone,duration,goal,proof,brandVoice,model});latest=d.text;$("result").textContent=latest;const cost=d.usage?.estimatedCostUsd;const tokens=(d.usage?.inputTokens||0)+(d.usage?.outputTokens||0);$("feedback").textContent="Generated with "+d.model+" · "+tokens+" tokens · estimated API cost $"+(typeof cost==="number"?cost.toFixed(6):"not reported")+". Review factual claims before publishing.";}catch(e){latest=localDraft(topic,aud,platform,tone,duration,goal,proof,mode);$("result").textContent=latest;$("feedback").textContent=e.code==="AI_NOT_CONFIGURED"?"Local preview generated. Add a private OpenAI API key in Render to activate model generation.":"Local preview generated because the AI service is not ready: "+e.message;}finally{total++;try{localStorage.setItem("sparkloopCount",String(total))}catch(e){}$("count").textContent=total;button.disabled=false;button.textContent="Generate content ↗"}};
-$("compareModels").onclick=async()=>{if(!aiReady){$("feedback").textContent="Model comparison is unavailable until the private API key is configured.";return}const topic=$("topic").value.trim();if(!topic){$("feedback").textContent="Enter a topic first.";return}const models=[["gpt-6.2-astra","GPT-6.2 Astra"],["gpt-6.2-sol","GPT-6.2 Sol"],["gpt-6-astra","GPT-6 Astra"],["gpt-6.1-sol","GPT-6.1 Sol"],["gpt-6.1-terra","GPT-6.1 Terra"],["gpt-6-luna","GPT-6 Luna"]];const accepted=window.confirm("This sends the same prompt to all four models and incurs API charges for each. Continue?");if(!accepted)return;const b=$("compareModels");b.disabled=true;b.textContent="Comparing…";const payload={mode:$("outputMode").value,topic,audience:$("audience").value,platform:$("platform").value,tone:$("tone").value,duration:$("duration").value,goal:$("contentGoal").value,proof:$("proof").value,brandVoice:$("brandVoice").value};let out=[];for(const [id,name] of models){try{const d=await callModel({...payload,model:id});out.push("===== "+name+" · estimated cost $"+(d.usage?.estimatedCostUsd??"not reported")+" =====\n"+d.text)}catch(e){out.push("===== "+name+" =====\n"+e.message)}}latest=out.join("\n\n");$("result").textContent=latest;$("feedback").textContent="Six-model comparison finished where quota allowed. Estimated token costs are shown with each result.";b.disabled=false;b.textContent="Compare all 6 models · costs apply";};
+$("compareModels").onclick=async()=>{if(!aiReady){$("feedback").textContent="Model comparison is unavailable until the private API key is configured.";return}const topic=$("topic").value.trim();if(!topic){$("feedback").textContent="Enter a topic first.";return}const models=[["gpt-6.2-astra","GPT-6.2 Astra"],["gpt-6.2-sol","GPT-6.2 Sol"],["gpt-6-astra","GPT-6 Astra"],["gpt-6.1-sol","GPT-6.1 Sol"],["gpt-6.1-terra","GPT-6.1 Terra"],["gpt-6-luna","GPT-6 Luna"]];const accepted=window.confirm("This sends the same prompt to all six models and incurs API charges for each. Continue?");if(!accepted)return;const b=$("compareModels");b.disabled=true;b.textContent="Comparing…";const payload={mode:$("outputMode").value,topic,audience:$("audience").value,platform:$("platform").value,tone:$("tone").value,duration:$("duration").value,goal:$("contentGoal").value,proof:$("proof").value,brandVoice:$("brandVoice").value};let out=[];for(const [id,name] of models){try{const d=await callModel({...payload,model:id});out.push("===== "+name+" · estimated cost $"+(d.usage?.estimatedCostUsd??"not reported")+" =====\n"+d.text)}catch(e){out.push("===== "+name+" =====\n"+e.message)}}latest=out.join("\n\n");$("result").textContent=latest;$("feedback").textContent="Six-model comparison finished where quota allowed. Estimated token costs are shown with each result.";b.disabled=false;b.textContent="Compare all 6 models · costs apply";};
 $("copy").onclick=async()=>{if(!latest)return $("feedback").textContent="Generate a draft first.";try{await navigator.clipboard.writeText(latest);$("feedback").textContent="Draft copied."}catch(e){$("feedback").textContent="Clipboard access unavailable. Select the draft text and copy it."}};
 $("save").onclick=()=>{if(!latest)return $("feedback").textContent="Generate a draft first.";drafts.unshift({id:Date.now(),platform:$("platform").value,text:latest,date:new Date().toLocaleDateString()});drafts=drafts.slice(0,100);try{localStorage.setItem("sparkloopDrafts",JSON.stringify(drafts))}catch(e){$("feedback").textContent="Browser storage is full; remove old drafts and retry.";return}$("feedback").textContent="Saved locally to your calendar."};
 $("share").onclick=async()=>{if(!latest)return $("feedback").textContent="Generate a draft first.";if(navigator.share){try{await navigator.share({title:"SparkLoop AI content draft",text:latest})}catch(e){}}else{$("copy").click()}};
@@ -104,6 +139,60 @@ root.replaceChildren();if(!metrics.length){const e=document.createElement("div")
 metrics.slice().reverse().forEach(m=>{const card=document.createElement("article");card.className="item";const title=document.createElement("h3");title.textContent=m.name+" · "+m.platform;const line=document.createElement("p");line.className="muted tiny";line.textContent=m.date+" · Reach "+m.reach.toLocaleString()+" · Clicks "+m.clicks.toLocaleString()+" · Leads "+m.leads.toLocaleString()+" · Sales "+m.sales.toLocaleString()+" · Revenue ₹"+m.revenue.toLocaleString("en-IN");const remove=document.createElement("button");remove.className="ghost";remove.textContent="Remove";remove.onclick=()=>{metrics=metrics.filter(x=>x.id!==m.id);try{localStorage.setItem("sparkloopMetrics",JSON.stringify(metrics))}catch(e){}renderMetrics()};card.append(title,line,remove);root.append(card)});
 }
 $("saveMetric").onclick=()=>{const name=$("metricName").value.trim();if(!name){alert("Enter a post or campaign name.");return}const vals=["metricReach","metricClicks","metricLeads","metricSales","metricRevenue"].map(id=>Number($(id).value));if(vals.some(v=>!Number.isFinite(v)||v<0)){alert("Enter valid non-negative metrics.");return}const [reach,clicks,leads,sales,revenue]=vals;metrics.push({id:Date.now(),name,platform:$("metricPlatform").value,reach,clicks,leads,sales,revenue,date:new Date().toLocaleDateString()});metrics=metrics.slice(-100);try{localStorage.setItem("sparkloopMetrics",JSON.stringify(metrics))}catch(e){alert("Browser storage is full. Remove older metrics and try again.");return}renderMetrics();$("metricName").value="";};
+
+let leads=[];let editingLeadId=null;
+try{leads=JSON.parse(localStorage.getItem("sparkloopLeads")||"[]");if(!Array.isArray(leads))leads=[];}catch(e){leads=[];}
+const leadStages=["New","Contacted","Qualified","Proposal sent","Won","Lost"];
+function localISODate(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function saveLeadStorage(){try{localStorage.setItem("sparkloopLeads",JSON.stringify(leads));return true}catch(e){$("leadFeedback").textContent="Browser storage is full. Export your leads and remove older entries before saving.";return false}}
+function leadField(id){return $(id).value.trim()}
+function resetLeadForm(){editingLeadId=null;["leadCompany","leadContact","leadEmail","leadPhone","leadWebsite","leadNotes","leadFollowup"].forEach(id=>$(id).value="");$("leadSource").value="Website";$("leadStage").value="New";$("leadValue").value="0";$("leadFormTitle").textContent="Add a prospect";$("saveLead").textContent="Save prospect";$("cancelLeadEdit").classList.add("hidden")}
+function renderLeads(){
+const summary=$("leadSummary"),root=$("leadList");if(!summary||!root)return;
+const open=leads.filter(x=>!["Won","Lost"].includes(x.stage));
+const pipeline=open.reduce((sum,x)=>sum+(Number(x.value)||0),0);
+const today=localISODate();
+const due=leads.filter(x=>x.followup&&x.followup<=today&&!["Won","Lost"].includes(x.stage)).length;
+summary.innerHTML='<div class="stat"><b>'+leads.length+'</b><small>Total prospects</small></div><div class="stat"><b>₹'+pipeline.toLocaleString("en-IN")+'</b><small>Open pipeline value · not revenue</small></div><div class="stat"><b>'+due+'</b><small>Follow-ups due / overdue</small></div>';
+const term=$("leadSearch").value.trim().toLowerCase(),stage=$("leadFilter").value;
+const shown=leads.filter(x=>(!stage||x.stage===stage)&&(!term||[x.company,x.contact,x.email,x.phone,x.notes,x.source].join(" ").toLowerCase().includes(term))).slice().sort((a,b)=>(a.followup||"9999").localeCompare(b.followup||"9999"));
+root.replaceChildren();
+if(!shown.length){const e=document.createElement("div");e.className="empty";e.textContent=leads.length?"No leads match these filters.":"No prospects saved yet. Add a prospect to start tracking your pipeline.";root.append(e);return}
+shown.forEach(lead=>{
+const card=document.createElement("article");card.className="item";
+const heading=document.createElement("h3");heading.textContent=lead.company;
+const detail=document.createElement("p");detail.className="muted tiny";detail.textContent=[lead.contact,lead.email,lead.phone].filter(Boolean).join(" · ")||"No contact details yet";
+const meta=document.createElement("p");meta.className="tiny";meta.textContent="Stage: "+lead.stage+" · Source: "+lead.source+" · Potential: ₹"+Number(lead.value||0).toLocaleString("en-IN");
+const follow=document.createElement("p");follow.className="tiny";follow.textContent=lead.followup?"Next follow-up: "+lead.followup+(lead.followup<=today&&!["Won","Lost"].includes(lead.stage)?" · DUE":""):"No follow-up date set";
+const notes=document.createElement("p");notes.className="muted tiny";notes.textContent=lead.notes||"No notes";
+const stage=document.createElement("select");stage.setAttribute("aria-label","Update stage for "+lead.company);leadStages.forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=s;stage.append(o)});stage.value=lead.stage;stage.addEventListener("change",()=>{lead.stage=stage.value;saveLeadStorage();renderLeads()});
+const actions=document.createElement("div");actions.className="actions";
+const edit=document.createElement("button");edit.className="ghost";edit.textContent="Edit";edit.onclick=()=>{editingLeadId=lead.id;$("leadCompany").value=lead.company;$("leadContact").value=lead.contact;$("leadEmail").value=lead.email;$("leadPhone").value=lead.phone;$("leadWebsite").value=lead.website;$("leadSource").value=lead.source;$("leadStage").value=lead.stage;$("leadValue").value=lead.value;$("leadFollowup").value=lead.followup;$("leadNotes").value=lead.notes;$("leadFormTitle").textContent="Edit prospect";$("saveLead").textContent="Update prospect";$("cancelLeadEdit").classList.remove("hidden");$("leadFeedback").textContent="Editing "+lead.company+".";$("leadCompany").focus()};
+const email=document.createElement("button");email.className="secondary";email.textContent="Draft email";email.disabled=!lead.email;email.title=lead.email?"Open a message draft in your email app":"Add an email address first";email.onclick=()=>{const subject="Following up on "+lead.company;const body="Hello "+(lead.contact||"there")+",\n\nThank you for your time. I wanted to follow up about your requirements for "+lead.company+".\n\nA useful next step would be to confirm the scope, timeline and budget so I can prepare an accurate proposal.\n\nBest regards";window.location.href="mailto:"+encodeURIComponent(lead.email)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body)};
+const del=document.createElement("button");del.className="ghost";del.textContent="Delete";del.onclick=()=>{if(!window.confirm("Delete this prospect from this browser?"))return;leads=leads.filter(x=>x.id!==lead.id);saveLeadStorage();renderLeads()};
+actions.append(edit,email,del);card.append(heading,detail,meta,follow,notes,stage,actions);root.append(card);
+});
+}
+$("saveLead").onclick=()=>{
+const company=leadField("leadCompany"),email=leadField("leadEmail"),value=Number($("leadValue").value);
+if(!company){$("leadFeedback").textContent="Enter a business or client name.";return}
+if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$("leadFeedback").textContent="Enter a valid email address or leave it blank.";return}
+if(!Number.isFinite(value)||value<0||value>100000000){$("leadFeedback").textContent="Enter a valid project value between ₹0 and ₹10 crore.";return}
+const item={id:editingLeadId||Date.now(),company,contact:leadField("leadContact"),email,phone:leadField("leadPhone"),website:leadField("leadWebsite"),source:$("leadSource").value,stage:$("leadStage").value,value,followup:$("leadFollowup").value,notes:leadField("leadNotes"),updatedAt:new Date().toISOString()};
+if(editingLeadId){leads=leads.map(x=>x.id===editingLeadId?item:x)}else{leads.push(item)}
+if(!saveLeadStorage())return;
+resetLeadForm();$("leadFeedback").textContent="Prospect saved in this browser.";renderLeads();
+};
+$("cancelLeadEdit").onclick=()=>{resetLeadForm();$("leadFeedback").textContent="Edit cancelled."};
+$("leadSearch").addEventListener("input",renderLeads);$("leadFilter").addEventListener("change",renderLeads);
+$("exportLeads").onclick=()=>{
+if(!leads.length){$("leadFeedback").textContent="There are no leads to export yet.";return}
+const cols=["company","contact","email","phone","website","source","stage","value","followup","notes","updatedAt"];
+const quote=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+const csv=[cols.join(","),...leads.map(x=>cols.map(c=>quote(x[c])).join(","))].join("\r\n");
+const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");a.href=url;a.download="sparkloop-client-leads.csv";a.click();URL.revokeObjectURL(url);
+};
+
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}
 if("serviceWorker" in navigator){let installPrompt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;let b=document.createElement("button");b.className="ghost";b.textContent="Install app";b.onclick=async()=>{installPrompt.prompt();installPrompt=null;b.remove()};document.querySelector(".nav").append(b)})}
 </script></body></html>
