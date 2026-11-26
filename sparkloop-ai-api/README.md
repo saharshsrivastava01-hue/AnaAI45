@@ -4,10 +4,13 @@ A server-side Node.js API for the SparkLoop AI content studio.
 
 ## Capabilities
 - OpenAI Responses API generation for content, seven-day campaigns, multi-platform repurposing, carousels, stories, storyboards, ad-copy drafts, SEO briefs and hook labs.
-- Selectable model allowlist: GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra and GPT-6 Luna.
+- Selectable public flagship text-model allowlist: GPT-6.2 Astra, GPT-6.2 Sol, GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna.
 - Request-size limits, per-IP rate window and a low default process-wide daily request cap.
 - Optional Postgres usage-event logging. No user accounts or cross-device storage are active in this prototype.
 - The server does not store the prompt text or generated content. Responses API requests use `store: false`.
+
+## Model pricing shown in the selector
+Standard global USD list rates per 1 million text tokens (input / output): GPT-6.2 Astra $8 / $40; GPT-6.2 Sol $2 / $10; GPT-6 Astra $10 / $50; GPT-6.1 Sol $2 / $10; GPT-6.1 Terra $1 / $5; GPT-6 Luna $0.10 / $0.50. Rates can change and processing tiers, caching, regions and other features may change charges. The API returns an estimate from input/output token usage; it is not a final invoice.
 
 ## Run locally
 1. Copy `.env.example` to `.env`.
