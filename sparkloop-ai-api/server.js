@@ -221,7 +221,7 @@ async function handleGenerate(req, res) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       instructions: "You are SparkLoop AI, a careful social-content strategist. Produce practical, original, truthful marketing drafts. Never invent evidence or claim guaranteed virality. Refuse requests for spam, deceptive impersonation, fake engagement, or fabricated testimonials. Output clean headings and usable copy.",
       input: prompt,
       max_output_tokens: ["campaign", "repurpose", "carousel", "storyboard"].includes(mode) ? 2800 : 2200,
@@ -264,6 +264,8 @@ const server = http.createServer(async (req, res) => {
       service: "sparkloop-ai-api",
       model: MODEL,
       aiConfigured: Boolean(API_KEY),
+      models: MODEL_CATALOG,
+      supportedModes: ["content", "campaign", "repurpose", "carousel", "story", "storyboard", "adcopy", "seo", "hooklab"],
       database: dbStatus,
       timestamp: new Date().toISOString(),
     });
