@@ -4,9 +4,11 @@ const PORT = Number(process.env.PORT || 10000);
 const APP_ORIGIN = (process.env.APP_ORIGIN || "https://sparkloop-ai.onrender.com").replace(/\/$/, "");
 const MODEL = process.env.OPENAI_MODEL || "gpt-6.2-sol";
 const MODEL_CATALOG = [
-  { id: "gpt-6.2-astra", name: "GPT-6.2 Astra", inputUsdPerMillion: 8, outputUsdPerMillion: 40, description: "Highest capability for demanding creative strategy" },
+  { id: "gpt-6.2-astra", name: "GPT-6.2 Astra", inputUsdPerMillion: 8, outputUsdPerMillion: 40, description: "Flagship model for demanding creative strategy" },
   { id: "gpt-6.2-sol", name: "GPT-6.2 Sol", inputUsdPerMillion: 2, outputUsdPerMillion: 10, description: "Balanced model for regular content work" },
-  { id: "gpt-6.1-terra", name: "GPT-6.1 Terra", inputUsdPerMillion: 1, outputUsdPerMillion: 5, description: "Efficient writing and visual reasoning" },
+  { id: "gpt-6-astra", name: "GPT-6 Astra", inputUsdPerMillion: 10, outputUsdPerMillion: 50, description: "Previous flagship model" },
+  { id: "gpt-6.1-sol", name: "GPT-6.1 Sol", inputUsdPerMillion: 2, outputUsdPerMillion: 10, description: "Professional general-work model" },
+  { id: "gpt-6.1-terra", name: "GPT-6.1 Terra", inputUsdPerMillion: 1, outputUsdPerMillion: 5, description: "Efficient writing and reasoning" },
   { id: "gpt-6-luna", name: "GPT-6 Luna", inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.5, description: "Lowest-cost high-volume option" }
 ];
 const MODEL_IDS = new Set(MODEL_CATALOG.map((item) => item.id));
