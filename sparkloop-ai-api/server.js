@@ -16,8 +16,10 @@ const API_KEY = process.env.OPENAI_API_KEY || "";
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS = Number(process.env.RATE_LIMIT_PER_WINDOW || 8);
 const MAX_DAILY_REQUESTS = Number(process.env.MAX_DAILY_REQUESTS || 6);
+const MAX_DAILY_ESTIMATED_COST_USD = Number(process.env.MAX_DAILY_ESTIMATED_COST_USD || 0.50);
 let dailyDate = new Date().toISOString().slice(0, 10);
 let dailyCount = 0;
+let dailyEstimatedCostUsd = 0;
 const MAX_BODY = 12_000;
 const rates = new Map();
 let dbPool = null;
@@ -101,11 +103,17 @@ async function initDatabase() {
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS sparkloop_generation_events (
         id BIGSERIAL PRIMARY KEY,
-        platform VARCHAR(40) NOT NULL,
+        platform VARCHAR(80) NOT NULL,
         model VARCHAR(100) NOT NULL,
+        input_tokens BIGINT NOT NULL DEFAULT 0,
+        output_tokens BIGINT NOT NULL DEFAULT 0,
+        estimated_cost_usd NUMERIC(14,8) NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await dbPool.query("ALTER TABLE sparkloop_generation_events ADD COLUMN IF NOT EXISTS input_tokens BIGINT NOT NULL DEFAULT 0");
+    await dbPool.query("ALTER TABLE sparkloop_generation_events ADD COLUMN IF NOT EXISTS output_tokens BIGINT NOT NULL DEFAULT 0");
+    await dbPool.query("ALTER TABLE sparkloop_generation_events ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC(14,8) NOT NULL DEFAULT 0");
     dbStatus = "connected";
   } catch (error) {
     dbStatus = "error";
@@ -130,9 +138,12 @@ async function handleGenerate(req, res) {
     return send(res, 429, { error: "RATE_LIMITED", message: "Too many requests. Please try again after the rate-limit window." });
   }
   const today = new Date().toISOString().slice(0, 10);
-  if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
+  if (today !== dailyDate) { dailyDate = today; dailyCount = 0; dailyEstimatedCostUsd = 0; }
   if (dailyCount >= MAX_DAILY_REQUESTS) {
     return send(res, 429, { error: "DAILY_LIMIT_REACHED", message: "This prototype has reached its daily AI request cap. Try again tomorrow or adjust the server-side limit after reviewing API costs." });
+  }
+  if (dailyEstimatedCostUsd >= MAX_DAILY_ESTIMATED_COST_USD) {
+    return send(res, 429, { error: "DAILY_COST_CAP_REACHED", message: "The estimated daily model-cost cap has been reached. Review your API budget before increasing it." });
   }
   dailyCount += 1;
 
@@ -246,14 +257,29 @@ async function handleGenerate(req, res) {
   const text = extractText(responseData);
   if (!text) return send(res, 502, { error: "EMPTY_MODEL_RESPONSE", message: "The model returned no text. Please retry." });
 
+  const usage = responseData.usage || {};
+  const inputTokens = Number(usage.input_tokens || 0);
+  const outputTokens = Number(usage.output_tokens || 0);
+  const modelInfo = MODEL_CATALOG.find((item) => item.id === model);
+  const estimatedCostUsd = modelInfo
+    ? (inputTokens * modelInfo.inputUsdPerMillion + outputTokens * modelInfo.outputUsdPerMillion) / 1_000_000
+    : 0;
+  dailyEstimatedCostUsd += estimatedCostUsd;
+
   if (dbPool) {
     try {
-      await dbPool.query("INSERT INTO sparkloop_generation_events(platform, model) VALUES ($1, $2)", [platform, MODEL]);
+      await dbPool.query(
+        "INSERT INTO sparkloop_generation_events(platform, model, input_tokens, output_tokens, estimated_cost_usd) VALUES ($1, $2, $3, $4, $5)",
+        [platform, model, inputTokens, outputTokens, estimatedCostUsd]
+      );
     } catch (error) {
       console.error("Could not record usage metric:", error.message);
     }
   }
-  return send(res, 200, { text, model, mode, database: dbStatus });
+  return send(res, 200, {
+    text, model, mode, database: dbStatus,
+    usage: { inputTokens, outputTokens, estimatedCostUsd: Number(estimatedCostUsd.toFixed(8)), currency: "USD" }
+  });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -268,6 +294,7 @@ const server = http.createServer(async (req, res) => {
       aiConfigured: Boolean(API_KEY),
       models: MODEL_CATALOG,
       supportedModes: ["content", "campaign", "repurpose", "carousel", "story", "storyboard", "adcopy", "seo", "hooklab"],
+      limits: { maxRequestsPer15Minutes: MAX_REQUESTS, maxRequestsPerDay: MAX_DAILY_REQUESTS, estimatedDailyCostCapUsd: MAX_DAILY_ESTIMATED_COST_USD },
       database: dbStatus,
       timestamp: new Date().toISOString(),
     });
