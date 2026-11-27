@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: NEXUS Connect AI API
-  version: 0.2.0
-  description: Secure API for the NEXUS Connect AI workspace. Drafting and record management only; no automatic calls, emails, job submissions, payments, or external commitments.
+  version: 0.3.0
+  description: Secure API for the NEXUS Connect AI workspace. Drafting, interview practice, and record management only; no automatic calls, emails, job submissions, payments, or external commitments.
 servers:
   - url: https://YOUR-DEPLOYED-HOST
     description: Replace with your deployed HTTPS backend URL
@@ -15,12 +15,11 @@ paths:
       summary: Check NEXUS backend health
       security: []
       responses:
-        '200':
-          description: Backend health
+        '200': { description: Backend health }
   /agent/assist:
     post:
       operationId: createAssistantDraft
-      summary: Generate a reviewed draft or project plan
+      summary: Generate a reviewed work draft, project plan, or mock interview coaching
       requestBody:
         required: true
         content:
@@ -31,20 +30,16 @@ paths:
               properties:
                 task:
                   type: string
-                  enum: [qualify_lead, draft_proposal, plan_website, review_scope, draft_job_application, create_sample_content]
-                context:
-                  type: string
-                  maxLength: 12000
+                  enum: [qualify_lead, draft_proposal, plan_website, review_scope, draft_job_application, create_sample_content, mock_interview_question, evaluate_interview_answer, interview_prep_plan]
+                context: { type: string, maxLength: 8000 }
       responses:
-        '200':
-          description: Draft result
+        '200': { description: Assistant result }
   /leads:
     get:
       operationId: listLeads
       summary: List saved business leads
       responses:
-        '200':
-          description: Saved leads
+        '200': { description: Saved leads }
     post:
       operationId: saveLead
       summary: Save a business lead supplied by the user
@@ -64,15 +59,13 @@ paths:
                 source: { type: string }
                 notes: { type: string }
       responses:
-        '201':
-          description: Lead saved
+        '201': { description: Lead saved }
   /applications:
     get:
       operationId: listJobApplications
       summary: List saved job opportunities and application statuses
       responses:
-        '200':
-          description: Saved applications
+        '200': { description: Saved applications }
     post:
       operationId: saveJobApplication
       summary: Save a job opportunity; does not submit an application
@@ -92,8 +85,7 @@ paths:
                   type: string
                   enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
       responses:
-        '201':
-          description: Opportunity saved
+        '201': { description: Opportunity saved }
   /applications/{id}:
     patch:
       operationId: updateJobApplication
@@ -116,8 +108,7 @@ paths:
                 notes: { type: string }
                 url: { type: string }
       responses:
-        '200':
-          description: Updated application
+        '200': { description: Updated application }
     delete:
       operationId: deleteJobApplication
       summary: Delete a saved job record after user request
@@ -127,8 +118,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Deleted record
+        '200': { description: Deleted record }
   /workflows/validate:
     post:
       operationId: validateWorkflow
@@ -150,16 +140,11 @@ paths:
                     properties:
                       id: { type: string }
                       title: { type: string }
-                      dependsOn:
-                        type: array
-                        items: { type: string }
-                      risk:
-                        type: string
-                        enum: [low, medium, high]
+                      dependsOn: { type: array, items: { type: string } }
+                      risk: { type: string, enum: [low, medium, high] }
                       requiresApproval: { type: boolean }
       responses:
-        '200':
-          description: Validated plan
+        '200': { description: Validated plan }
 components:
   securitySchemes:
     bearerAuth:
