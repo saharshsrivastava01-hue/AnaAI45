@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXUS Connect AI — Virtual Interview Assistant</title>
+<style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#172033;background:#f4f7fb}*{box-sizing:border-box}body{margin:0;padding:24px}.wrap{max-width:920px;margin:auto}.panel{background:white;border:1px solid #dce4ef;border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 4px 18px #15294b0b}h1{margin:0 0 8px;font-size:27px}h2{font-size:18px;margin:0 0 12px}.muted{color:#607087;font-size:14px}label{display:block;font-weight:600;margin:12px 0 6px}input,select,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}button{border:0;border-radius:9px;padding:11px 16px;background:#1c4ed8;color:white;font-weight:650;cursor:pointer;margin:8px 8px 0 0}button.secondary{background:#e8eef9;color:#18345e}button:disabled{opacity:.5;cursor:not-allowed}.question{font-size:19px;font-weight:650;line-height:1.45}.score{font-size:30px;font-weight:750}.tag{display:inline-block;padding:4px 8px;background:#edf3ff;border-radius:20px;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:650px){body{padding:12px}.grid{grid-template-columns:1fr}}.hide{display:none}.result{white-space:pre-wrap;line-height:1.55}
+</style>
+</head>
+<body><main class="wrap">
+<div class="panel"><span class="tag">NEXUS Connect AI · Local interview practice</span><h1>Virtual Interview Assistant</h1><p class="muted">Practice interviews, answer aloud or type your response, and get a structured self-review. This page runs locally in your browser; it does not call employers, record audio, or submit applications.</p></div>
+<section class="panel"><h2>1. Set up your mock interview</h2><div class="grid"><div><label for="role">Target role</label><input id="role" value="Junior WordPress Developer"></div><div><label for="level">Interview level</label><select id="level"><option>Entry level</option><option>Junior</option><option>Intermediate</option></select></div><div><label for="focus">Interview focus</label><select id="focus"><option value="mixed">Mixed interview</option><option value="technical">Technical</option><option value="behavioral">Behavioral</option><option value="client">Client communication</option></select></div><div><label for="count">Questions</label><select id="count"><option>5</option><option selected>8</option><option>10</option></select></div></div><button id="start">Start mock interview</button></section>
+<section class="panel hide" id="practice"><div class="muted" id="progress"></div><p class="question" id="question"></p><label for="answer">Your answer</label><textarea id="answer" placeholder="Type your answer here. You can also use your device's keyboard microphone dictation."></textarea><div><button id="review">Review this answer</button><button class="secondary" id="next">Next question</button></div><div class="panel hide" id="feedback"><h2>Answer review</h2><div class="score" id="score"></div><div class="result" id="notes"></div></div></section>
+<section class="panel"><h2>2. Interview preparation notes</h2><p class="muted">Use truthful examples. If you have not performed a task professionally, say so and explain how you would learn or approach it.</p><ul><li>Answer behavioral questions with Situation, Task, Action, Result (STAR).</li><li>For technical questions, explain the concept, give a simple example, and mention limitations.</li><li>Never claim client work, certifications, tools, or results you cannot verify.</li><li>Ask the interviewer about responsibilities, support, working hours, and the next step.</li></ul></section>
+</main>
+<script>
+const banks={
+technical:[
+["How would you explain WordPress to a non-technical client?","Explain it simply as a content management system; describe pages, posts, themes, plugins, and the client's editing workflow."],
+["What is the difference between a WordPress theme and a plugin?","A theme controls presentation and layout; plugins add or extend functionality. Mention compatibility and keeping both updated."],
+["How would you investigate a WordPress page that loads slowly?","Check image sizes, plugins, hosting, caching, theme scripts, and browser/network diagnostics; make one change at a time and measure."],
+["What steps would you take before updating a live WordPress site?","Back up files and database, check staging if available, review compatibility, schedule safely, update, then test key pages and forms."],
+["How would you make a website easier to use on mobile?","Use responsive layouts, readable type, adequate touch targets, compressed images, and test on multiple screen sizes."],
+["What would you do if a plugin update broke a website?","Avoid random changes; use backup or rollback, isolate the plugin, check logs and compatibility, test on staging, document the fix."]
+],
+behavioral:[
+["Tell me about yourself and why you are applying for this role.","Give a concise education and experience summary, connect verified skills to the role, and state what you want to learn."],
+["Describe a time you had to learn a tool quickly.","Use a real example and STAR structure. Be specific about the learning steps and outcome."],
+["How do you handle feedback on your work?","Listen, clarify the expected change, prioritize it, apply it, and confirm the result without becoming defensive."],
+["What do you do when you do not know an answer?","Be honest, explain what you do know, outline how you would verify the answer, and ask a clarifying question."]
+],
+client:[
+["A client says the website looks wrong on their phone. How do you respond?","Acknowledge the issue, ask for device/browser and page details, reproduce it, agree on priority, fix and verify."],
+["How would you clarify a vague website request?","Ask about audience, goal, pages, examples, content, functionality, deadline, budget, and acceptance criteria; summarize in writing."],
+["A client requests extra work outside the agreed scope. What do you do?","Explain the original scope politely, clarify the new requirement, estimate impact, and request written approval before proceeding."]
+]};
+let questions=[],index=0,reviewed=0;
+const $=id=>document.getElementById(id);
+function chooseQuestions(){const focus=$('focus').value;let pool=focus==='mixed'?[...banks.technical,...banks.behavioral,...banks.client]:banks[focus];const n=Number($('count').value);questions=pool.slice(0,n);index=0;reviewed=0;$('practice').classList.remove('hide');render();$('feedback').classList.add('hide');}
+function render(){$('progress').textContent='Question '+(index+1)+' of '+questions.length+' · '+$('role').value+' · '+$('level').value;$('question').textContent=questions[index][0];$('answer').value='';$('feedback').classList.add('hide');$('next').textContent=index===questions.length-1?'Finish interview':'Next question';}
+function review(){const a=$('answer').value.trim();if(!a){$('notes').textContent='Write or dictate an answer first, then review it.';$('score').textContent='—';$('feedback').classList.remove('hide');return;}const words=a.split(/\s+/).length;let points=0;const checks=[['Directly addresses the question',a.length>70],['Includes a concrete example or steps',/example|for instance|first|then|because|result|I would|I did/i.test(a)],['Explains the outcome or reasoning',/result|improv|because|therefore|measure|test|learn/i.test(a)],['Clear and sufficiently developed',words>=35]];points=checks.filter(x=>x[1]).length;$('score').textContent=points+'/4 self-review checks';$('notes').textContent=checks.map(x=>(x[1]?'✓ ':'○ ')+x[0]).join('\n')+'\n\nA strong answer for this question could cover:\n'+questions[index][1]+'\n\nThis is a practice rubric, not an employer assessment. Add only details that are true for you.';$('feedback').classList.remove('hide');reviewed++;}
+$('start').addEventListener('click',chooseQuestions);$('review').addEventListener('click',review);$('next').addEventListener('click',()=>{if(index<questions.length-1){index++;render();}else{$('question').textContent='Practice complete. You reviewed '+reviewed+' answer(s). Revisit any question where you could add a truthful example.';$('progress').textContent='Mock interview complete';$('answer').value='';$('feedback').classList.add('hide');$('next').disabled=true;$('review').disabled=true;}});
+</script></body></html>
