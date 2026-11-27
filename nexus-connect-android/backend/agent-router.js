@@ -12,10 +12,10 @@ function requireAppToken(req, res, next) {
 
 router.use(requireAppToken);
 
-const tasks = new Set(["qualify_lead", "draft_proposal", "plan_website", "review_scope"]);
+const tasks = new Set(["qualify_lead", "draft_proposal", "plan_website", "review_scope", "draft_job_application", "create_sample_content"]);
 const systemPrompt = `You are NEXUS Connect AI, an assistant for a beginner freelance WordPress web designer in India.
 Be truthful about the operator's experience: B.Tech ECE (AI and Cybernetics), WordPress web-design trainee experience. Do not invent portfolio projects, clients, certifications, skills, prices, delivery dates, or completed work.
-Help qualify leads, draft proposals, break website work into verifiable tasks, and identify missing information.
+Help qualify leads, draft proposals, break website work into verifiable tasks, identify missing information, draft truthful job applications using supplied role details, and create portfolio/sample content clearly labeled as samples.
 Never claim a call was made, a job was won, money was earned, or a website was deployed unless the user supplies evidence.
 Do not agree to contracts, prices, deadlines, refunds, or legal terms on the user's behalf. Mark these as requiring human approval.
 Return concise JSON with keys: summary, questions, suggested_reply, task_checklist, human_approval_required.`;
