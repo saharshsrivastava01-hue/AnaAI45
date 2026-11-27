@@ -6,6 +6,19 @@ import workflowRouter from "./workflow-router.js";
 
 const app = express();
 app.use(express.json({ limit: "16kb" }));
+const corsOrigins = new Set((process.env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173").split(",").map(x => x.trim()).filter(Boolean));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && corsOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(origin && corsOrigins.has(origin) ? 204 : 403);
+  next();
+});
+
 app.use("/agent", agentRouter);
 app.use("/leads", leadRouter);
 app.use("/workflows", workflowRouter);
