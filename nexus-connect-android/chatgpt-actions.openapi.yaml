@@ -1,0 +1,171 @@
+openapi: 3.1.0
+info:
+  title: NEXUS Connect AI API
+  version: 1.0.0
+  description: Human-approved work assistant, lead manager, job application tracker, and workflow planner.
+servers:
+  - url: https://YOUR_PUBLIC_BACKEND_HOST
+    description: Replace with your deployed HTTPS backend URL.
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: APP_ACCESS_TOKEN
+  schemas:
+    AssistRequest:
+      type: object
+      required: [task, context]
+      properties:
+        task:
+          type: string
+          enum: [qualify_lead, draft_proposal, plan_website, review_scope, draft_job_application, create_sample_content]
+        context:
+          type: string
+          minLength: 5
+          maxLength: 8000
+    Lead:
+      type: object
+      required: [businessName, country]
+      properties:
+        businessName: { type: string }
+        country: { type: string }
+        city: { type: string }
+        website: { type: string }
+        publicContact: { type: string }
+        source: { type: string }
+        notes: { type: string }
+    Application:
+      type: object
+      required: [company, role]
+      properties:
+        company: { type: string }
+        role: { type: string }
+        url: { type: string }
+        notes: { type: string }
+    WorkflowTask:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        dependsOn:
+          type: array
+          items: { type: string }
+        risk:
+          type: string
+          enum: [low, medium, high]
+        requiresApproval: { type: boolean }
+    Workflow:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items: { $ref: '#/components/schemas/WorkflowTask' }
+paths:
+  /health:
+    get:
+      operationId: checkNexusBackend
+      security: []
+      summary: Check whether NEXUS backend is online
+      responses:
+        '200':
+          description: Backend health and telephony configuration status
+  /agent/assist:
+    post:
+      operationId: requestNexusAIWorkDraft
+      summary: Generate a truthful AI-assisted work draft
+      description: Drafts only. Does not contact clients, submit applications, or make commitments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistRequest' }
+      responses:
+        '200': { description: AI-generated draft }
+        '401': { description: Invalid app token }
+        '503': { description: AI provider not configured }
+  /leads:
+    get:
+      operationId: listNexusLeads
+      summary: List saved leads
+      responses:
+        '200': { description: Saved lead records }
+    post:
+      operationId: saveNexusLead
+      summary: Save a prospect supplied by the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Lead' }
+      responses:
+        '201': { description: Lead saved }
+  /applications:
+    get:
+      operationId: listNexusApplications
+      summary: List saved job opportunities
+      responses:
+        '200': { description: Saved job application records }
+    post:
+      operationId: saveNexusApplication
+      summary: Save a job opportunity; does not apply for the job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Application' }
+      responses:
+        '201': { description: Opportunity saved }
+  /applications/{id}:
+    patch:
+      operationId: updateNexusApplication
+      summary: Update application tracking status, notes, or URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
+                notes: { type: string }
+                url: { type: string }
+      responses:
+        '200': { description: Application updated }
+        '404': { description: Application not found }
+    delete:
+      operationId: deleteNexusApplication
+      summary: Delete a saved application record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Application deleted }
+  /workflows/validate:
+    post:
+      operationId: validateNexusWorkflow
+      summary: Validate and order a proposed task workflow
+      description: Planning only; no task is executed by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Workflow' }
+      responses:
+        '200': { description: Validated ordered workflow }
+        '400': { description: Invalid workflow }
