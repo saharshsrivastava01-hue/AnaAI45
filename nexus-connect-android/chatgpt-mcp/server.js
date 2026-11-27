@@ -40,7 +40,7 @@ function makeServer() {
   return mcp;
 }
 app.get("/health",(_req,res)=>res.json({ok:true,service:"nexus-chatgpt-mcp",backend}));
-app.all("/mcp",async(req,res)=>{
+app.all("/mcp",async(req,res,next)=>{\n  const access=process.env.MCP_ACCESS_TOKEN;\n  const bearer=(req.headers.authorization||"").replace(/^Bearer\\s+/i,"");\n  if(!access) return res.status(503).json({error:"MCP_ACCESS_TOKEN is not configured."});\n  if(bearer!==access) return res.status(401).json({error:"Unauthorized"});
   const server=makeServer();
   const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined});
   res.on("close",()=>{transport.close();server.close()});
