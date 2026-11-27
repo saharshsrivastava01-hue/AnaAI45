@@ -4,6 +4,7 @@ import twilio from "twilio";
 import agentRouter from "./agent-router.js";
 import leadRouter from "./lead-router.js";
 import workflowRouter from "./workflow-router.js";
+import applicationsRouter from "./applications-router.js";
 
 const app = express();
 app.use(express.json({ limit: "16kb" }));
@@ -23,6 +24,7 @@ app.use((req, res, next) => {
 app.use("/agent", agentRouter);
 app.use("/leads", leadRouter);
 app.use("/workflows", workflowRouter);
+app.use("/applications", applicationsRouter);
 
 const required = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER", "PUBLIC_BASE_URL"];
 const configured = required.every((key) => Boolean(process.env[key]));
