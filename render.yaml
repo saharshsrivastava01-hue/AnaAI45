@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: nexus-connect-ai-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: cd nexus-connect-android/backend && npm install
+    startCommand: cd nexus-connect-android/backend && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_ACCESS_TOKEN
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: CORS_ORIGINS
+        value: https://YOUR-GPT-ACTION-CLIENT
+      - key: NEXUS_LEADS_FILE
+        value: /opt/render/project/src/nexus-connect-android/backend/data/leads.json
+      - key: NEXUS_APPLICATIONS_FILE
+        value: /opt/render/project/src/nexus-connect-android/backend/data/applications.json
