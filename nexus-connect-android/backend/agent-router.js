@@ -43,7 +43,7 @@ router.post("/assist", async (req, res) => {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
         instructions: systemPrompt,
-        input: `Task: ${task}\\nInterview / client context:\\n${context}\\nReturn valid JSON only.`,
+        input: `Task: ${task}\\nInterview / client context:\n${context}\\nReturn valid JSON only.`,
         max_output_tokens: 1100
       })
     });
