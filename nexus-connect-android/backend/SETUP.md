@@ -53,9 +53,9 @@ curl -X POST https://YOUR_HOST/calls/create \
 
 Do not use sample numbers as real prospects. Only call people where contact is lawful and appropriate, identify the AI, respect opt-outs, and comply with local telecom rules.
 
-## Important current limitations
-- No database or user-account system yet.
-- The app does not yet call /agent/assist; Android-to-backend authentication and API screens remain to be implemented.
+## Workflow planner endpoint\nRequires bearer token. Validate task dependency graphs with `POST /workflows/validate`; it only plans and validates, does not execute actions.\n\n## Important current limitations
+- Leads are persisted to a local JSON file (default `backend/data/leads.json`); this is not a multi-user database. Set `NEXUS_LEADS_FILE` to change the file path. Back up the file regularly.
+- The web dashboard is at `web/index.html`. For local use, run a static server on port 5173 (e.g. `npx serve web -l 5173`) and configure the backend `CORS_ORIGINS` to include `http://localhost:5173`. In the dashboard, enter backend URL and APP_ACCESS_TOKEN. Avoid using public/shared computers.
 - The Twilio voice webhook is a static introductory message, not a two-way AI conversation.
 - No Realtime API audio bridge, incoming call handling, FCM notifications, payment gateway, or production deployment is included.
 - Do not expose APP_ACCESS_TOKEN, OPENAI_API_KEY, or Twilio credentials in an APK.
