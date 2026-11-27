@@ -1,0 +1,193 @@
+openapi: 3.1.0
+info:
+  title: NEXUS Connect AI API
+  version: 1.0.0
+  description: Secure API for the user's NEXUS lead, job-application, workflow-planning and AI-drafting workspace. Actions only save or prepare information; they do not contact prospects, submit job applications, spend money or make commitments.
+servers:
+  - url: https://YOUR-DEPLOYED-BACKEND.example.com
+    description: Replace with the HTTPS URL of your deployed NEXUS backend.
+security:
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: checkNexusHealth
+      summary: Check whether the NEXUS backend is online
+      security: []
+      responses:
+        '200':
+          description: Backend health
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  service: { type: string }
+                  telephonyConfigured: { type: boolean }
+  /agent/assist:
+    post:
+      operationId: prepareNexusDraft
+      summary: Prepare an AI-assisted draft or analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task, context]
+              properties:
+                task:
+                  type: string
+                  enum: [qualify_lead, draft_proposal, plan_website, review_scope, draft_job_application, create_sample_content]
+                context: { type: string, minLength: 1, maxLength: 12000 }
+      responses:
+        '200':
+          description: Draft or analysis
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '401': { description: Unauthorized }
+  /leads:
+    get:
+      operationId: listNexusLeads
+      summary: List saved business leads
+      responses:
+        '200': { description: Saved leads }
+    post:
+      operationId: saveNexusLead
+      summary: Save a lead supplied by the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessName, country]
+              properties:
+                businessName: { type: string }
+                country: { type: string }
+                city: { type: string }
+                website: { type: string }
+                publicContact: { type: string }
+                source: { type: string }
+                notes: { type: string }
+      responses:
+        '201': { description: Lead saved }
+        '400': { description: Invalid lead }
+  /leads/{id}:
+    patch:
+      operationId: updateNexusLead
+      summary: Update lead stage or notes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stage:
+                  type: string
+                  enum: [new, researching, qualified, contacted, replied, meeting, won, lost, do_not_contact]
+                notes: { type: string }
+                website: { type: string }
+                publicContact: { type: string }
+      responses:
+        '200': { description: Lead updated }
+        '404': { description: Lead not found }
+    delete:
+      operationId: deleteNexusLead
+      summary: Delete a saved lead
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Lead deleted }
+  /applications:
+    get:
+      operationId: listNexusApplications
+      summary: List tracked job opportunities
+      responses:
+        '200': { description: Saved job applications }
+    post:
+      operationId: saveNexusApplication
+      summary: Save a job opportunity; does not submit an application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company, role]
+              properties:
+                company: { type: string }
+                role: { type: string }
+                url: { type: string }
+                notes: { type: string }
+                status:
+                  type: string
+                  enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
+      responses:
+        '201': { description: Opportunity saved }
+  /applications/{id}:
+    patch:
+      operationId: updateNexusApplication
+      summary: Update job opportunity status or notes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
+                notes: { type: string }
+                url: { type: string }
+      responses:
+        '200': { description: Opportunity updated }
+    delete:
+      operationId: deleteNexusApplication
+      summary: Delete a tracked opportunity
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Opportunity deleted }
+  /workflows/validate:
+    post:
+      operationId: validateNexusWorkflow
+      summary: Validate and order a proposed task workflow without executing it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  minItems: 1
+                  maxItems: 40
+                  items:
+                    type: object
+                    required: [id, title]
+                    properties:
+                      id: { type: string }
+                      title: { type: string }
+                      dependsOn: { type: array, items: { type: string } }
+                      risk: { type: string, enum: [low, medium, high] }
+                      requiresApproval: { type: boolean }
+      responses:
+        '200': { description: Validated plan; no external action executed }
+        '400': { description: Invalid plan }
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
