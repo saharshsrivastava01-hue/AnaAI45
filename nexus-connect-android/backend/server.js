@@ -1,8 +1,10 @@
 import express from "express";
 import twilio from "twilio";
+import agentRouter from "./agent-router.js";
 
 const app = express();
 app.use(express.json({ limit: "16kb" }));
+app.use("/agent", agentRouter);
 
 const required = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER", "PUBLIC_BASE_URL"];
 const configured = required.every((key) => Boolean(process.env[key]));
