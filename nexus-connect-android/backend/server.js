@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import twilio from "twilio";
 import agentRouter from "./agent-router.js";
