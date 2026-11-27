@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: NEXUS Connect AI API
+  version: 0.2.0
+  description: Secure API for the NEXUS Connect AI workspace. Drafting and record management only; no automatic calls, emails, job submissions, payments, or external commitments.
+servers:
+  - url: https://YOUR-DEPLOYED-HOST
+    description: Replace with your deployed HTTPS backend URL
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: checkBackend
+      summary: Check NEXUS backend health
+      security: []
+      responses:
+        '200':
+          description: Backend health
+  /agent/assist:
+    post:
+      operationId: createAssistantDraft
+      summary: Generate a reviewed draft or project plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task, context]
+              properties:
+                task:
+                  type: string
+                  enum: [qualify_lead, draft_proposal, plan_website, review_scope, draft_job_application, create_sample_content]
+                context:
+                  type: string
+                  maxLength: 12000
+      responses:
+        '200':
+          description: Draft result
+  /leads:
+    get:
+      operationId: listLeads
+      summary: List saved business leads
+      responses:
+        '200':
+          description: Saved leads
+    post:
+      operationId: saveLead
+      summary: Save a business lead supplied by the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessName, country]
+              properties:
+                businessName: { type: string }
+                country: { type: string }
+                city: { type: string }
+                website: { type: string }
+                publicContact: { type: string }
+                source: { type: string }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Lead saved
+  /applications:
+    get:
+      operationId: listJobApplications
+      summary: List saved job opportunities and application statuses
+      responses:
+        '200':
+          description: Saved applications
+    post:
+      operationId: saveJobApplication
+      summary: Save a job opportunity; does not submit an application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company, role]
+              properties:
+                company: { type: string }
+                role: { type: string }
+                url: { type: string }
+                notes: { type: string }
+                status:
+                  type: string
+                  enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
+      responses:
+        '201':
+          description: Opportunity saved
+  /applications/{id}:
+    patch:
+      operationId: updateJobApplication
+      summary: Update a saved job opportunity status or notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [saved, researching, draft_ready, approved_to_apply, applied, interview, offer, rejected, withdrawn]
+                notes: { type: string }
+                url: { type: string }
+      responses:
+        '200':
+          description: Updated application
+    delete:
+      operationId: deleteJobApplication
+      summary: Delete a saved job record after user request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted record
+  /workflows/validate:
+    post:
+      operationId: validateWorkflow
+      summary: Validate and order a proposed workflow; never executes it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  maxItems: 40
+                  items:
+                    type: object
+                    required: [id, title]
+                    properties:
+                      id: { type: string }
+                      title: { type: string }
+                      dependsOn:
+                        type: array
+                        items: { type: string }
+                      risk:
+                        type: string
+                        enum: [low, medium, high]
+                      requiresApproval: { type: boolean }
+      responses:
+        '200':
+          description: Validated plan
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: APP_ACCESS_TOKEN
