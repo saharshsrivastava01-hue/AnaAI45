@@ -62,12 +62,15 @@ This is not yet a complete login/account system. Profile/post submissions are ra
 The creator platform now includes a token-protected moderation queue at `GET /api/v1/moderation/queue`; the operator UI in `platform.html` can approve or reject pending creator profiles and posts. Reports are listed for review but are not automatically resolved.
 
 
-## Security status update
-- Operator moderation now supports marking abuse reports as reviewed or dismissed.
-- The duplicate moderation-queue route was removed and bearer-token parsing was corrected.
-- Creator post publishing is deliberately disabled until cryptographic creator ownership and post authorisation are implemented. This closes the current handle-impersonation path rather than pretending a handle is an authenticated account.
-- Run `node --test worker/tests/security.test.mjs` with Node.js 18+; GitHub Actions runs these static regression checks on pushes and pull requests.
-- These source changes are not deployed or integration-tested against a live Cloudflare Worker/D1 database. The static tests check security invariants, not production behavior.
+## Security status update (27 Nov 2026)
+- Abuse reports can be marked `reviewed` or `dismissed` only by the operator; successful moderation transitions are recorded with the status change in a D1 batch and exposed in the private moderation queue.
+- New creator handles are bound to ECDSA P-256 public keys after a fresh signed enrollment proof. Posts must be signed by the key bound to the approved creator ID; handle-only publishing is not accepted.
+- Legacy creator rows remain unowned. They cannot be approved for publishing until a separate reviewed ownership-claim process exists; no typed-handle claim is trusted.
+- Rejecting a pending creator claim preserves its original handle for audit/review and releases that handle for a new key-backed claim. The rejected key remains linked to the rejected record and cannot publish.
+- The operator console uses one shared bearer secret with request throttling and an explicit page-session Worker-endpoint trust confirmation. This is not individual moderator authentication or MFA.
+- For a new D1 database, apply `worker/schema.sql`. For an existing database, apply migrations `0002`–`0007` in order; migration `0002` is one-time only and must not be blindly rerun.
+- Run `cd worker && npm test` and `python3 tests/schema_migrations.test.py`. CI uses a D1 test double plus SQLite migration checks; these are not live Cloudflare D1 or browser end-to-end tests.
+- These are committed source changes only. No Worker deployment, D1 migration, Pages configuration or production setting is changed by this PR.
 
 
 ## ULTRA AI assistant (new)
