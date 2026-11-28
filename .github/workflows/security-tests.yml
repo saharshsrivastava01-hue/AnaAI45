@@ -1,6 +1,7 @@
 name: ULTRA security tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -13,5 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Run static security regression tests
-        run: node --test worker/tests/security.test.mjs
+      - name: Run Worker security and behavior tests
+        working-directory: worker
+        run: npm test
+      - name: Validate fresh schema, upgrade migrations and moderation rollback with SQLite
+        working-directory: worker
+        run: python3 tests/schema_migrations.test.py
