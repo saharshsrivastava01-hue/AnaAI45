@@ -19,7 +19,8 @@ test("AI provider key is server-side and never embedded in the page", () => {
 
 test("AI requests are bounded and rate limited", () => {
   assert.match(ai, /message\.length > 4000/);
-  assert.match(ai, /row\.hits >= 8/);
+  assert.match(ai, /consumeRateLimit\(env\.DB, "ai:" \+ ip, 8\)/);
+  assert.match(ai, /readJson\(request, 20 \* 1024\)/);
   assert.match(ai, /max_tokens: 900/);
 });
 
